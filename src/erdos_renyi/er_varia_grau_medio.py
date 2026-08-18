@@ -1,35 +1,38 @@
 import networkx as nx
 import matplotlib.pyplot as plt
-import random
-import numpy as np
 import time
-import csv
+import sys
 
 from pathlib import Path
 
-# Diretorios de saida, resolvidos a partir da raiz do repositorio.
-RAIZ = Path(__file__).resolve().parents[2]
-SAIDA_CSV = RAIZ / 'resultados' / 'erdos_renyi' / 'csv'
-SAIDA_FIG = RAIZ / 'resultados' / 'erdos_renyi' / 'figuras'
-SAIDA_CSV.mkdir(parents=True, exist_ok=True)
-SAIDA_FIG.mkdir(parents=True, exist_ok=True)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from comum import (deve_registrar, diretorios, estatisticas, geradores,
+                   salvar_csv, salvar_figura, semente_base, semente_de_ponto,
+                   tempo, total_de_passos)
 
+SAIDA_CSV, SAIDA_FIG = diretorios('erdos_renyi')
+
+# Rotulo desta varredura nas sementes derivadas.
+VARREDURA = 'er_varia_grau_medio'
 
 
 #função para pegar um nó aleatório
-def get_random_node(graph):
-    return random.choice(list(graph.nodes()))
+def get_random_node(graph, gerador_random):
+    return gerador_random.choice(list(graph.nodes()))
 
 #função para pegar um vizinho aleatório do nó escolhido
-def get_random_neighbor(graph, node):
-    return random.choice(list(graph.neighbors(node)))
+def get_random_neighbor(graph, node, gerador_random):
+    return gerador_random.choice(list(graph.neighbors(node)))
 
 #função de atribuição
 
 
 
 #função principal
-def dilema_prisioneiro(k):
+def dilema_prisioneiro(k, semente):
+
+    #geradores explicitos: nada de random/np.random globais
+    gerador_numpy, gerador_random = geradores(semente)
 
     #parametros do grafo, grau medio <k> = p*N
     n = 1000
@@ -38,20 +41,19 @@ def dilema_prisioneiro(k):
     #distribuição da quantidade de cooperadores iniciais
     p_i = 0.5
     
-    #tempo de evolucao
-    t = 0
-    t_list = [0]
+    #tempo de evolucao, em varreduras
+    t_list = [0.0]
     #lista de cooperacao
     coop = []
     #numero de agentes cooperando
     num_coop = 0
 
     #grafo aleatório
-    G = nx.erdos_renyi_graph(n, p)
+    G = nx.erdos_renyi_graph(n, p, seed=gerador_numpy)
 
-    #atribuição de valores 
+    #atribuição de valores
     for i in G.nodes():
-        G.nodes[i]['value'] = 1*(np.random.random() < 1-p_i)
+        G.nodes[i]['value'] = 1*(gerador_numpy.random() < 1-p_i)
         
         #adicionando numero de cooperadores à lista
         if G.nodes[i]['value'] == 0:
@@ -62,14 +64,14 @@ def dilema_prisioneiro(k):
 
 
     #loop para evolucao temporal
-    for i in range(1000*n):
+    for i in range(total_de_passos(n)):
 
         #escolhendo nó
-        random_node = get_random_node(G)
+        random_node = get_random_node(G, gerador_random)
 
         if G.degree[random_node] >= 1:
-            #escolhendo vizinho 
-            random_neighbour = get_random_neighbor(G, random_node)
+            #escolhendo vizinho
+            random_neighbour = get_random_neighbor(G, random_node, gerador_random)
 
             #valor do player 1 e 2
             p1_v = G.nodes[random_node]['value']
@@ -93,35 +95,24 @@ def dilema_prisioneiro(k):
                     G.nodes[random_neighbour]['value'] = 0
                     num_coop += 2
 
-        #passo
-        if i%1000 == 0 and i != 0:
-            t += 1
-            t_list.append(t)
+        #registro da serie temporal
+        if deve_registrar(i):
+            t_list.append(tempo(i, n))
             coop.append(num_coop)
 
 
     #fracao de cooperadores
     frac_coop = [x/n for x in coop]
 
-    #descarte dos 1000 primeiros registros
-    coop_resultante = frac_coop[100:]
-
-    # Desvio padrão dos cooperadores
-    desvio_padrao = np.std(coop_resultante)
-
-    # Desvio padrão da média
-    N = len(coop_resultante)
-    desvio_padrao_da_media = desvio_padrao / np.sqrt(N)
-
-    #media dos cooperadores 
-    media_frac_coop = np.mean(coop_resultante)
+    #media e desvio, ja descartado o transiente padronizado
+    media_frac_coop, desvio_padrao_da_media = estatisticas(frac_coop)
 
 
     # Criar o gráfico
     plt.figure(figsize=(10, 6))
     plt.plot(t_list, frac_coop, color='blue')
     plt.title('Evolução Temporal - Erdos-renyi')
-    plt.xlabel('Tempo')
+    plt.xlabel('Tempo (varreduras)')
     plt.ylabel('Fração de cooperadores')
     plt.grid(True)
     plt.text(0.95, 0.01, f'Prob. de conexão = {p}, <k> = {n*p}', 
@@ -140,14 +131,12 @@ def dilema_prisioneiro(k):
              color='black', fontsize=12)
 
 
-    plt.savefig(SAIDA_FIG / f'Erdos_renyi_p_{p}.png')
-    plt.close()
-    #plt.show()
+    salvar_figura(plt, SAIDA_FIG / f'Erdos_renyi_p_{p}.png')
 
     return media_frac_coop, desvio_padrao_da_media
 
-def loop():
-    
+def loop(semente):
+
     medias = []
     desvios = []
     graus_medios = []
@@ -155,7 +144,7 @@ def loop():
     for k in range(2, 21, 2):
         start_loop_time = time.time()
 
-        media, desvio = dilema_prisioneiro(k)
+        media, desvio = dilema_prisioneiro(k, semente_de_ponto(semente, VARREDURA, k))
         medias.append(media)
         desvios.append(desvio)
         graus_medios.append(k)
@@ -165,16 +154,19 @@ def loop():
         loop_duration = round(end_loop_time - start_loop_time, 2)
         print(f"loop {round(k/2)} concluido em {loop_duration} segundos")
     
-    with open(SAIDA_CSV / 'Dilema_erdos_results.csv', 'w', newline='') as csvfile:
-        csvwriter = csv.writer(csvfile)
-        csvwriter.writerow(['Grau_Medio', 'Media_Frac_Coop', 'Desvio_Padrao_da_Media'])
-        for i in range(len(graus_medios)):
-            csvwriter.writerow([graus_medios[i], medias[i], desvios[i]])
-    
-    
+    salvar_csv(
+        SAIDA_CSV / 'Dilema_erdos_results.csv',
+        ['Grau_Medio', 'Media_Frac_Coop', 'Desvio_Padrao_da_Media'],
+        zip(graus_medios, medias, desvios),
+        semente=semente,
+    )
+
+
 if __name__ == "__main__":
     start_time = time.time()
-    loop()
+    SEMENTE = semente_base()
+    print(f"semente-base = {SEMENTE}")
+    loop(SEMENTE)
     end_time = time.time()
 
     print(f"Tempo de execução: {round(end_time - start_time, 2)} segundos")

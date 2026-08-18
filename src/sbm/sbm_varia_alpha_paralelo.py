@@ -1,18 +1,21 @@
 import networkx as nx
-import random
+import matplotlib.pyplot as plt
 import numpy as np
 import time
-import csv
+import sys
 from multiprocessing import Pool
 
 from pathlib import Path
 
-# Diretorios de saida, resolvidos a partir da raiz do repositorio.
-RAIZ = Path(__file__).resolve().parents[2]
-SAIDA_CSV = RAIZ / 'resultados' / 'sbm' / 'csv'
-SAIDA_FIG = RAIZ / 'resultados' / 'sbm' / 'figuras'
-SAIDA_CSV.mkdir(parents=True, exist_ok=True)
-SAIDA_FIG.mkdir(parents=True, exist_ok=True)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from comum import (deve_registrar, diretorios, estatisticas, geradores,
+                   salvar_csv, salvar_figura, semente_base, semente_de_ponto,
+                   sementes_de_realizacoes, tempo, total_de_passos)
+
+SAIDA_CSV, SAIDA_FIG = diretorios('sbm')
+
+# Rotulo desta varredura nas sementes derivadas.
+VARREDURA = 'sbm_varia_alpha_paralelo'
 
 
 # Função para pegar um nó aleatório
@@ -25,9 +28,8 @@ def get_random_neighbor(graph, node, random_gen):
 
 # Função principal de simulação
 def dilema_prisioneiro(sizes, p, n, np_random, random_gen):
-    # Tempo de evolução
-    t = 0
-    t_list = [0]
+    # Tempo de evolução, em varreduras
+    t_list = [0.0]
     # Lista de cooperação
     coop = []
     # Número de agentes cooperando
@@ -52,7 +54,7 @@ def dilema_prisioneiro(sizes, p, n, np_random, random_gen):
     coop.append(num_coop)
 
     # Loop para evolução temporal
-    for i in range(1000 * n):  # Ajuste o número de passos se necessário
+    for i in range(total_de_passos(n)):
 
         # Escolhendo nó
         random_node = get_random_node(G, random_gen)
@@ -82,44 +84,32 @@ def dilema_prisioneiro(sizes, p, n, np_random, random_gen):
                     G.nodes[random_neighbour]['value'] = 0
                     num_coop += 2
 
-        # Passo de registro
-        if i % 1000 == 0 and i != 0:
-            t += 1
-            t_list.append(t)
+        # Registro da série temporal
+        if deve_registrar(i):
+            t_list.append(tempo(i, n))
             coop.append(num_coop)
 
     # Fração de cooperadores
     frac_coop = [x / n for x in coop]
 
-    # Descartar os primeiros 1000 registros, mantendo a maior parte dos dados
-    coop_resultante = frac_coop[100:]
-
-    # Desvio padrão dos cooperadores
-    desvio_padrao = np.std(coop_resultante)
-
-    # Desvio padrão da média
-    N = len(coop_resultante)
-    desvio_padrao_da_media = desvio_padrao / np.sqrt(N)
-
-    # Média dos cooperadores
-    media_frac_coop = np.mean(coop_resultante)
+    # Média e desvio, já descartado o transiente padronizado
+    media_frac_coop, desvio_padrao_da_media = estatisticas(frac_coop)
 
     return media_frac_coop, desvio_padrao_da_media
 
 # Função para rodar uma simulação, retornando apenas a média da fração de cooperadores
 def run_simulation(args):
-    sizes, p, n = args
-    # Inicializa geradores de números aleatórios independentes para cada processo
-    seed_seq = np.random.SeedSequence()
-    np_random = np.random.default_rng(seed_seq)
-    # Gera um seed para o módulo random e converte para int
-    random_seed = int(seed_seq.generate_state(1)[0])
-    random_gen = random.Random(random_seed)
+    # A semente vem como argumento da tarefa, nao do estado do processo pai: no
+    # Windows o start method e spawn, o filho reimporta este modulo do zero e
+    # nao herda gerador nenhum. Antes daqui saia um SeedSequence() sem entropia
+    # fixa, o que tornava cada execucao irrepetivel.
+    sizes, p, n, semente = args
+    np_random, random_gen = geradores(semente)
     media_frac_coop, _ = dilema_prisioneiro(sizes, p, n, np_random, random_gen)
     return media_frac_coop
 
 # Função principal que executa o loop de variação de alpha e simulações paralelas
-def loop(k):
+def loop(k, semente):
     sizes = [250, 250, 250, 250]
     n = sum(sizes)
     num_simulations = 25  # Número de simulações por valor de alpha
@@ -143,10 +133,15 @@ def loop(k):
             [n_diag, n_diag, n_diag, diag],
         ]
 
+        # Uma semente por realizacao, derivada do ponto (k, alpha)
+        sementes = sementes_de_realizacoes(
+            semente_de_ponto(semente, VARREDURA, k, alpha), num_simulations)
+
         # Usando Pool para paralelizar as simulações
         with Pool(processes=8) as pool:  # Ajuste o número de processos conforme o número de núcleos disponíveis
             resultados_simulacoes = pool.map(
-                run_simulation, [(sizes, p, n) for _ in range(num_simulations)]
+                run_simulation,
+                [(sizes, p, n, semente_da_realizacao) for semente_da_realizacao in sementes]
             )
 
         # Calculando a média e o desvio padrão da média das simulações
@@ -163,17 +158,27 @@ def loop(k):
     print(medias, "\n", desvios)
 
     # Salvando as listas em um arquivo CSV
-    with open(SAIDA_CSV / f'SBM_50s_{k}.csv', 'w', newline='') as csvfile:
-        csvwriter = csv.writer(csvfile)
-        csvwriter.writerow(['alpha', 'Media da fração de coooperadores', 'Desvio_Padrao_da_Media'])
-        for i in range(len(alpha_list)):
-            csvwriter.writerow([round(alpha_list[i], 1), medias[i], desvios[i]])
+    salvar_csv(
+        SAIDA_CSV / f'SBM_50s_{k}.csv',
+        ['Alpha', 'Media_Frac_Coop', 'Desvio_Padrao_da_Media'],
+        ([round(alpha_list[i], 1), medias[i], desvios[i]] for i in range(len(alpha_list))),
+        semente=semente,
+    )
+
+    plt.figure(figsize=(8, 5))
+    plt.errorbar(alpha_list, medias, yerr=desvios, fmt='o', capsize=5, markersize=5)
+    plt.title(f'SBM: fração de cooperadores x alpha (<k> = {k}, {num_simulations} realizações)', fontsize=12)
+    plt.xlabel('Alpha', fontsize=14)
+    plt.ylabel('Média da fração de cooperadores', fontsize=14)
+    plt.ylim(0, 1)
+    plt.grid(True)
+    salvar_figura(plt, SAIDA_FIG / f'SBM_alpha_k_{k}_{num_simulations}sim.png')
 
 
-def loop_k():
+def loop_k(semente):
     for k in range(2, 21, 2):
         start_time_k = time.time()
-        loop(k)
+        loop(k, semente)
         end_time_k = time.time()
         print(f"Tempo de execução: {round(end_time_k - start_time_k, 2)} segundos")
         print(f"Tempo de execução: {round((end_time_k - start_time_k)/60, 2)} minutos")
@@ -182,7 +187,9 @@ def loop_k():
 # Execução do código
 if __name__ == "__main__":
     start_time = time.time()
-    loop_k()
+    SEMENTE = semente_base()
+    print(f"semente-base = {SEMENTE}")
+    loop_k(SEMENTE)
     end_time = time.time()
     print(f"Tempo de execução: {round(end_time - start_time, 2)} segundos")
     print(f"Tempo de execução: {round((end_time - start_time)/60, 2)} minutos")

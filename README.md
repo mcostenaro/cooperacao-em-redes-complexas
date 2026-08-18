@@ -15,6 +15,7 @@ As limitações do modelo estão documentadas em [Limitações conhecidas](#limi
 
 ```
 src/
+├── comum.py                        # parametros de amostragem e I/O compartilhados
 ├── barabasi_albert/
 │   ├── ba_varia_grau_medio.py      # varre m = 1..10 (⟨k⟩ = 2m)
 │   └── ba_prototipo_com_score.py   # protótipo com matriz de payoff (ver Limitações)
@@ -36,19 +37,105 @@ src/
 └── nucleos.py                      # utilitário: imprime os.cpu_count()
 
 resultados/
-├── <modelo>/csv/                   # saídas numéricas
+├── <modelo>/csv/                   # saídas numéricas (semeadas)
 ├── <modelo>/figuras/               # PNGs
+├── <modelo>/legacy/                # tudo que foi gerado antes da semeadura
 └── _orfaos/                        # dados sem script correspondente
 ```
 
-Em `watts_strogatz/` há um par de subpastas `media_30_simulacoes/` (em `csv/` e
-em `figuras/`) com resultados promediados sobre 30 realizações, gerados por uma
-versão anterior dos scripts de WS. A nomenclatura ali é a antiga
+**`legacy/` não é versionado.** Todo resultado gerado antes da semeadura foi
+movido para `resultados/<modelo>/legacy/` e entrou no `.gitignore`, junto com
+`_orfaos/`. Não existe semente que os regere, então não servem como dado
+versionado — ficam na máquina para conferência histórica e nada mais. O que o
+repositório versiona daqui em diante é só saída com coluna `Semente_Base`.
+
+Em `watts_strogatz/legacy/` há um par de subpastas `media_30_simulacoes/` (em
+`csv/` e em `figuras/`) com resultados promediados sobre 30 realizações, gerados
+por uma versão anterior dos scripts de WS. A nomenclatura ali é a antiga
 (`Dilema_WA_results_*`, `WA_transiente_p_*_k_*`) e não corresponde à saída atual.
 
-Cada script resolve seus diretórios de saída a partir da raiz do repositório
-(`Path(__file__).resolve().parents[2]`), então pode ser executado de qualquer
-diretório.
+Todo script resolve seus diretórios de saída via `comum.diretorios(modelo)`, que
+parte da raiz do repositório, então pode ser executado de qualquer diretório.
+Nenhum script abre janela do matplotlib: tudo é gravado em disco.
+
+## Amostragem
+
+Definida em `src/comum.py` e usada por todos os scripts de simulação:
+
+| | valor |
+|---|---|
+| 1 varredura | N passos (cada nó sorteado uma vez em média) |
+| passos por simulação | 10⁶ (= 1000 varreduras, N = 1000) |
+| registro da série | a cada 100 passos = 0,1 varredura |
+| registros por simulação | 10.000 |
+| transiente descartado | 1.000 registros = 100 varreduras = 10% |
+| amostras estacionárias | 9.000 |
+
+A coluna de tempo dos CSVs novos (`Tempo_varreduras`) está em varreduras, não em
+índice de registro.
+
+**Por que isso importa.** Antes cada script tinha sua própria taxa de registro e
+seu próprio corte: BA registrava a cada 100 passos e descartava 100 registros
+(9.900 amostras), ER registrava a cada 1.000 e descartava 100 (900 amostras),
+WS/SBM registravam a cada 1.000 e descartavam 1.000 (**100** amostras). Como o
+desvio publicado é σ/√N, as barras de erro de BA e ER diferiam por
+√(9900/900) = 3,3 — e o σ das duas séries era o mesmo (0,0207 vs 0,0203 em
+⟨k⟩ = 6). A diferença era artefato da taxa de amostragem, não física, e aparecia
+no gráfico de comparação como se BA fosse 3× mais preciso que ER.
+
+> **Os CSVs em `resultados/<modelo>/legacy/` são anteriores a essa
+> padronização.** As médias continuam válidas como ordem de grandeza, mas as
+> barras de erro não são comparáveis entre modelos. Para publicar a comparação é
+> preciso regerar.
+
+## Reprodutibilidade
+
+Toda a aleatoriedade sai de uma **semente-base** inteira, definida em
+`src/comum.py` (`SEMENTE_PADRAO`) e sobrescrevível por linha de comando ou por
+variável de ambiente:
+
+```bash
+python src/sbm/sbm_varia_k.py --semente 12345
+```
+
+| origem | precedência |
+|---|---|
+| `--semente N` na linha de comando | 1ª |
+| variável de ambiente `TCC_SEMENTE` | 2ª |
+| `comum.SEMENTE_PADRAO` | padrão |
+
+Como funciona:
+
+- **Nenhum script usa `random` ou `np.random` globais.** `comum.geradores(semente)`
+  devolve um par `(np.random.Generator, random.Random)` que é passado como
+  argumento até o laço da dinâmica. As duas correntes vêm de derivações
+  distintas da mesma semente, então consumir uma não desloca a outra.
+- **Cada ponto da varredura tem sua própria semente**, derivada com
+  `comum.semente_de_ponto(base, rótulo, *parâmetros)`. Os rótulos entram no
+  `spawn_key` da `SeedSequence`, então a semente depende de *qual* ponto é e não
+  da ordem em que a varredura chegou nele: rodar a varredura inteira ou um ponto
+  isolado dá exatamente a mesma sequência de números.
+- **As realizações de um ensemble** saem de `comum.sementes_de_realizacoes()`
+  (`SeedSequence.spawn`) e são passadas **como argumento da tarefa** do
+  `multiprocessing`. No Windows o start method é `spawn`: o processo filho
+  reimporta o módulo do zero e não herda gerador nenhum do pai — herdar a
+  semente não funcionaria. Antes, os dois scripts paralelos chamavam
+  `SeedSequence()` dentro do filho, sem entropia fixa.
+- **Os geradores do networkx** (`barabasi_albert_graph`, `erdos_renyi_graph`,
+  `watts_strogatz_graph`, `stochastic_block_model`) recebem o gerador numpy em
+  `seed=`, então a topologia também é reproduzível.
+- **A semente vai para a saída.** Todo CSV de simulação ganhou a coluna
+  `Semente_Base`, e cada script imprime a semente que usou. Um CSV com
+  `Semente_Base = 12345` é regerado rodando o mesmo script com
+  `--semente 12345`.
+
+Trocar a semente-base muda todos os números; é o único ponto do código onde isso
+acontece.
+
+Três variáveis de ambiente a mais existem para testar a reprodutibilidade em
+segundos em vez de horas, sem tocar em `resultados/`: `TCC_VARREDURAS` e
+`TCC_REGISTROS_TRANSIENTE` reduzem a amostragem, e `TCC_RESULTADOS` redireciona
+a raiz das saídas.
 
 ## Como rodar
 
@@ -58,6 +145,13 @@ pip install -r requirements.txt
 
 ```bash
 python src/erdos_renyi/er_varia_grau_medio.py
+```
+
+Para remontar as figuras de comparação a partir dos CSVs já existentes, sem
+resimular nada (leva segundos):
+
+```bash
+python src/comparacoes/gerar_graficos.py
 ```
 
 Os scripts de simulação levam de minutos a horas (10⁶ passos por ponto da
@@ -80,7 +174,8 @@ segundo uma regra determinística:
 | D, D | **ambos viram C** |
 
 Uma unidade de tempo = N passos. Descarta-se o transiente e calcula-se a média e
-o desvio padrão da média da fração de cooperadores no estado estacionário.
+o desvio padrão da média da fração de cooperadores no estado estacionário, com os
+parâmetros da seção [Amostragem](#amostragem).
 
 Essa regra é exatamente **Win-Stay, Lose-Shift** (Pavlov, Nowak & Sigmund 1993)
 com nível de aspiração A na faixa P < A < R: quem recebeu um payoff acima da
@@ -137,26 +232,58 @@ Documentadas aqui porque determinam o alcance das conclusões acima:
    `σ/√N` sobre uma série temporal correlacionada, tratando amostras dependentes
    como independentes.
 
+7. **Os resultados em `legacy/` são anteriores à semeadura.** Foram gerados
+   quando todo gerador de grafo recebia `seed=None`, então não trazem coluna
+   `Semente_Base` e não podem ser regerados exatamente — por isso saíram do
+   versionamento. Vale para os números antigos, não para o código: ver
+   [Reprodutibilidade](#reprodutibilidade).
+
 ### Pontos menores
 
 - `ba_prototipo_com_score.py`: os dois ramos do `if` de comparação de score são
   logicamente idênticos, então a pontuação acumulada não influencia nada. O
   script roda a mesma dinâmica dos demais.
-- `gerar_graficos.py`: `comparar_graficos_p0` e `comparar_WA_transiente`
-  desempacotam 2 valores de `read_csv`, que retorna 3 — levantam `ValueError`.
-  Ficaram desatualizadas quando a coluna de desvio foi adicionada.
-- A unidade de tempo não é uniforme: `ba_varia_grau_medio.py` registra a cada
-  100 passos (0,1 varredura) enquanto os demais registram a cada 1000 (1 varredura).
-  O tamanho do transiente descartado também varia entre scripts.
-- `resultados/_orfaos/Dilema_LFR_results.csv` tem valores entre 2,9 e 5,3, fora
+- `resultados/_orfaos/Dilema_LFR_results.csv` (local, não versionado) tem
+  valores entre 2,9 e 5,3, fora
   do intervalo [0,1] de uma fração. Nenhum script atual gera LFR — provável erro
   de normalização em código perdido.
-- `sbm_varia_alpha.py` e `sbm_varia_alpha_ensemble.py` gravavam no mesmo arquivo
-  e se sobrescreviam. Agora escrevem `sbm_alpha_k_{k}_1sim.csv` e
-  `sbm_alpha_k_{k}_20sim.csv`. Os CSVs históricos `Dilema_SBM_results_k_*.csv`
-  vieram de um dos dois, sem registro de qual.
+- Os CSVs históricos `Dilema_SBM_results_k_*.csv` vieram de `sbm_varia_alpha.py`
+  ou de `sbm_varia_alpha_ensemble.py`, que gravavam no mesmo arquivo e se
+  sobrescreviam. Não há registro de qual. Hoje escrevem
+  `sbm_alpha_k_{k}_1sim.csv` e `sbm_alpha_k_{k}_20sim.csv`.
 - Prefixo `WA_` nos arquivos de Watts-Strogatz é typo herdado de `WS_`,
   preservado para não quebrar a correspondência com os dados já gerados.
+- Nos CSVs antigos a coluna de tempo é índice de registro, não varredura. Os
+  cabeçalhos deles não foram renomeados justamente para não mascarar isso.
+
+### Já corrigido
+
+- Amostragem e corte de transiente unificados em `src/comum.py` (ver
+  [Amostragem](#amostragem)).
+- Nada era reprodutível: `seed=None` em todo gerador de grafo, `random`/
+  `np.random` globais em 9 dos 11 scripts, e `SeedSequence()` sem entropia fixa
+  nos dois paralelos. Agora há semente-base explícita, derivação determinística
+  por ponto da varredura e propagação para os processos filhos — ver
+  [Reprodutibilidade](#reprodutibilidade). Verificado rodando cada script duas
+  vezes com a mesma semente e comparando os CSVs byte a byte.
+- `gerar_graficos.py` gravava tudo com `plt.show()` e não produzia arquivo
+  nenhum; as figuras vinham de print de tela. Agora salva PNG em
+  `resultados/comparacoes/figuras/`.
+- `comparar_graficos_p0` e `comparar_WA_transiente` levantavam `ValueError`:
+  liam CSVs de série de 2 colunas com um leitor endurecido para 3. Agora usam
+  `comum.ler_serie`.
+- `ba_prototipo_com_score.py` e `sbm_histograma_alpha.py` não gravavam nada em
+  disco. Agora salvam CSV e figura.
+- `ws_varia_k.py` e `ws_varia_p.py` gravavam figuras com o mesmo nome e se
+  sobrescreviam; agora vão para `figuras/varia_k/` e `figuras/varia_p/`.
+- `sbm_varia_alpha.py` salvava toda iteração em `SBM_verificacao.png`,
+  sobrescrevendo; agora o nome inclui o alpha.
+- `ws_varia_p.py` tinha o título "Erdos-renyi" nos gráficos de Watts-Strogatz.
+- Encoding: nenhum `open()` declarava `encoding=`, então em Windows os CSVs
+  saíam em cp1252 e 18 arquivos do SBM tinham "fração" corrompido no cabeçalho
+  (bytes U+FFFD gravados no arquivo). Cabeçalhos agora são ASCII sem acento nem
+  cedilha, e todo I/O é UTF-8 explícito. Os 18 arquivos foram reparados — só o
+  cabeçalho; nenhum número foi tocado.
 
 ## Correspondência com os nomes originais
 
@@ -176,8 +303,13 @@ Documentadas aqui porque determinam o alcance das conclusões acima:
 | `Dilema_varios_modelos.py` | `src/comparacoes/ba_vs_er.py` |
 | `graficos_dilema.py` | `src/comparacoes/gerar_graficos.py` |
 | `nucleos.py` | `src/nucleos.py` |
+| — | `src/comum.py` (novo) |
 
 ## Próximos passos
+
+Regerar os resultados com semente registrada, repovoando
+`resultados/<modelo>/csv/`. O que existe hoje está em `legacy/` e vem de antes da
+padronização da amostragem e da semeadura (limitação 7).
 
 Reescrita da dinâmica para teoria de jogos evolutiva padrão, mantendo os mesmos
 modelos de rede para comparação direta:

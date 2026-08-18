@@ -1,9 +1,21 @@
 import networkx as nx
-import random
 import numpy as np
 import time
+import sys
 import matplotlib.pyplot as plt
 from multiprocessing import Pool, cpu_count
+
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from comum import (deve_registrar, diretorios, estatisticas, geradores,
+                   salvar_csv, salvar_figura, semente_base, semente_de_ponto,
+                   sementes_de_realizacoes, tempo, total_de_passos)
+
+SAIDA_CSV, SAIDA_FIG = diretorios('sbm')
+
+# Rotulo desta simulacao nas sementes derivadas.
+VARREDURA = 'sbm_histograma_alpha'
 
 # Function to get a random node
 def get_random_node(graph, random_gen):
@@ -15,7 +27,7 @@ def get_random_neighbor(graph, node, random_gen):
 
 # Main simulation function
 def dilema_prisioneiro(sizes, p, n, np_random, random_gen):
-    t = 0
+    t_list = [0.0]
     coop = []
     num_coop = 0
 
@@ -34,7 +46,7 @@ def dilema_prisioneiro(sizes, p, n, np_random, random_gen):
 
     coop.append(num_coop)
 
-    for i in range(1000 * n):
+    for i in range(total_de_passos(n)):
         random_node = get_random_node(G, random_gen)
         if G.degree[random_node] >= 1:
             random_neighbour = get_random_neighbor(G, random_node, random_gen)
@@ -52,33 +64,30 @@ def dilema_prisioneiro(sizes, p, n, np_random, random_gen):
                 G.nodes[random_neighbour]['value'] = 0
                 num_coop += 2
 
-        if i % 1000 == 0 and i != 0:
-            t += 1
+        if deve_registrar(i):
+            t_list.append(tempo(i, n))
             coop.append(num_coop)
 
     frac_coop = [x / n for x in coop]
-    coop_resultante = frac_coop[100:]
 
-    desvio_padrao = np.std(coop_resultante)
-    desvio_padrao_da_media = desvio_padrao / np.sqrt(len(coop_resultante))
-    media_frac_coop = np.mean(coop_resultante)
+    # Média e desvio, já descartado o transiente padronizado
+    media_frac_coop, desvio_padrao_da_media = estatisticas(frac_coop)
 
     return media_frac_coop, desvio_padrao_da_media
 
 # Function to run a single simulation
 def run_simulation(args):
-    sizes, p, n = args
-    # Initialize a unique SeedSequence for each process
-    seed_seq = np.random.SeedSequence()
-    np_random = np.random.default_rng(seed_seq)
-    # Generate a seed for the random module and convert it to int
-    random_seed = int(seed_seq.generate_state(1)[0])
-    random_gen = random.Random(random_seed)
+    # A semente vem como argumento da tarefa, nao do estado do processo pai: no
+    # Windows o start method e spawn, o filho reimporta este modulo do zero e
+    # nao herda gerador nenhum. Antes daqui saia um SeedSequence() sem entropia
+    # fixa, o que tornava cada execucao irrepetivel.
+    sizes, p, n, semente = args
+    np_random, random_gen = geradores(semente)
     media_frac_coop, _ = dilema_prisioneiro(sizes, p, n, np_random, random_gen)
     return media_frac_coop
 
 # Main function adapted for a fixed value of alpha
-def loop():
+def loop(semente):
     sizes = [250, 250, 250, 250]
     k = 4
     n = sum(sizes)
@@ -101,10 +110,15 @@ def loop():
     print(f"Starting simulations for alpha = {alpha}...")
     start_sim_time = time.time()
 
+    # Uma semente por realizacao, derivada do ponto (k, alpha)
+    sementes = sementes_de_realizacoes(
+        semente_de_ponto(semente, VARREDURA, k, alpha), num_simulations)
+
     num_processes = min(8, cpu_count() - 2)  # Use up to 8 processes, leaving 2 CPUs free
     with Pool(processes=num_processes) as pool:
         resultados_simulacoes = pool.map(
-            run_simulation, [(sizes, p, n) for _ in range(num_simulations)]
+            run_simulation,
+            [(sizes, p, n, semente_da_realizacao) for semente_da_realizacao in sementes]
         )
 
     end_sim_time = time.time()
@@ -116,16 +130,25 @@ def loop():
     print(f"Mean fraction of cooperators: {media_final}")
     print(f"Standard deviation of the mean: {desvio_padrao_final}")
 
+    # Salva as realizacoes brutas, para poder refazer o histograma sem resimular.
+    salvar_csv(
+        SAIDA_CSV / f'sbm_histograma_alpha_{alpha}_k_{k}.csv',
+        ['Realizacao', 'Media_Frac_Coop'],
+        enumerate(resultados_simulacoes),
+        semente=semente,
+    )
+
     # Generate the histogram
     print("Generating histogram...")
     hist_start_time = time.time()
 
+    plt.figure(figsize=(8, 5))
     plt.hist(resultados_simulacoes, bins=20, alpha=0.75, edgecolor='black')
-    plt.title('Histograma da média da fração de cooperadores para alpha fixo')
-    plt.xlabel('Média da fração de cooperadores')
-    plt.ylabel('Frequência')
+    plt.title(f'Histograma da fração de cooperadores (alpha = {alpha}, {num_simulations} realizações)', fontsize=12)
+    plt.xlabel('Média da fração de cooperadores', fontsize=13)
+    plt.ylabel('Frequência', fontsize=13)
     plt.grid(True)
-    plt.show()
+    salvar_figura(plt, SAIDA_FIG / f'sbm_histograma_alpha_{alpha}_k_{k}.png')
 
     hist_end_time = time.time()
     print(f"Histogram generated in {round(hist_end_time - hist_start_time, 2)} seconds.")
@@ -135,7 +158,9 @@ if __name__ == "__main__":
     start_time = time.time()
     print("Starting code execution...")
 
-    loop()
+    SEMENTE = semente_base()
+    print(f"semente-base = {SEMENTE}")
+    loop(SEMENTE)
 
     end_time = time.time()
     print(f"Total execution time: {round(end_time - start_time, 2)} seconds.")
