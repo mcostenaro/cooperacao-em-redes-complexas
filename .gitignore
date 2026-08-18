@@ -8,3 +8,9 @@ env/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Resultados anteriores a semeadura (ver README, secao Reprodutibilidade).
+# Ficam so na maquina: nao ha semente que os regere, entao nao servem como
+# dado versionado - estao guardados para conferencia historica.
+resultados/*/legacy/
+resultados/_orfaos/
