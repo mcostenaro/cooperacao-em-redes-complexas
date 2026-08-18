@@ -132,7 +132,7 @@ def dilema_prisioneiro(k, p, semente):
              color='black', fontsize=12)
 
 
-    salvar_figura(plt, SAIDA_FIG / f'Watts_strogatz_k_{k}_p_{round(p, 2)}.png')
+    salvar_figura(plt, SAIDA_FIG / f'ws_k_{k}_p_{round(p, 2)}.png')
 
     return media_frac_coop, desvio_padrao_da_media
 
@@ -162,7 +162,7 @@ def loop(p, semente):
         print(f"loop {i} concluido em {loop_duration} segundos")
     
     salvar_csv(
-        SAIDA_CSV / f'WA_p_{p}.csv',
+        SAIDA_CSV / f'ws_varia_k_p_{p}.csv',
         ['k', 'Media_Frac_Coop', 'Desvio_Padrao_da_Media'],
         ([round(grau_medios[i], 2), medias[i], desvios[i]] for i in range(len(grau_medios))),
         semente=semente,

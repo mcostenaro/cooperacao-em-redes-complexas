@@ -252,12 +252,12 @@ Documentadas aqui porque determinam o alcance das conclusões acima:
   de normalização em código perdido.
 - Os CSVs históricos `Dilema_SBM_results_k_*.csv` vieram de `sbm_varia_alpha.py`
   ou de `sbm_varia_alpha_ensemble.py`, que gravavam no mesmo arquivo e se
-  sobrescreviam. Não há registro de qual. Hoje escrevem
-  `sbm_alpha_k_{k}_1sim.csv` e `sbm_alpha_k_{k}_20sim.csv`.
-- Prefixo `WA_` nos arquivos de Watts-Strogatz é typo herdado de `WS_`,
-  preservado para não quebrar a correspondência com os dados já gerados.
-- Nos CSVs antigos a coluna de tempo é índice de registro, não varredura. Os
-  cabeçalhos deles não foram renomeados justamente para não mascarar isso.
+  sobrescreviam. Não há registro de qual. Hoje os três varrimentos de α escrevem
+  `sbm_alpha_k_{k}_{n}sim.csv`, com n = 1, 20 ou 25.
+- Nos CSVs em `legacy/` a coluna de tempo é índice de registro, não varredura.
+  Os cabeçalhos deles não foram renomeados justamente para não mascarar isso.
+- A nomenclatura de `legacy/` é a antiga (`WA_`, `Dilema_`), diferente da atual —
+  ver a [convenção de nomes](PROTOCOLO.md#7-convenção-de-nomes-e-o-que-já-foi-resolvido).
 
 ### Já corrigido
 
@@ -282,6 +282,17 @@ Documentadas aqui porque determinam o alcance das conclusões acima:
 - `sbm_varia_alpha.py` salvava toda iteração em `SBM_verificacao.png`,
   sobrescrevendo; agora o nome inclui o alpha.
 - `ws_varia_p.py` tinha o título "Erdos-renyi" nos gráficos de Watts-Strogatz.
+- Nomes de saída inconsistentes entre quem grava e quem lê: `gerar_graficos.py`
+  procurava quatro CSVs que nenhum script produzia e pulava duas figuras em
+  silêncio. Os nomes foram unificados em `<modelo>_<eixo>_<parâmetro>.csv` (ver
+  [PROTOCOLO](PROTOCOLO.md#7-convenção-de-nomes-e-o-que-já-foi-resolvido)), o que
+  só ficou barato depois que os dados antigos saíram do versionamento.
+- `p₀` estava fixo no corpo de `ba_varia_grau_medio.py`: a figura que contrapõe
+  p₀ = 0,1 a 0,9 exigia editar o script e rodar de novo, e a série de transiente
+  gravava sempre no mesmo nome, então só o último `m` sobrevivia. Agora p₀ é uma
+  varredura (`P0_INICIAIS`) e o nome do arquivo carrega `m` e `p₀`.
+- A comparação entre todos os modelos misturava BA com p₀ = 0,9 e os demais com
+  0,5. A curva de BA passou a vir de `ba_vs_er.py`, que roda a 0,5.
 - Encoding: nenhum `open()` declarava `encoding=`, então em Windows os CSVs
   saíam em cp1252 e 18 arquivos do SBM tinham "fração" corrompido no cabeçalho
   (bytes U+FFFD gravados no arquivo). Cabeçalhos agora são ASCII sem acento nem

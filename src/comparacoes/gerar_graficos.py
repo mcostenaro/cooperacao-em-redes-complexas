@@ -18,7 +18,7 @@ _, SAIDA_FIG = diretorios('comparacoes')
 
 
 def csv_de(modelo, nome):
-    """Caminho de um CSV de resultado: csv_de('watts_strogatz', 'WA_k_2.csv')."""
+    """Caminho de um CSV: csv_de('watts_strogatz', 'ws_varia_p_k_2.csv')."""
     return RESULTADOS / modelo / 'csv' / nome
 
 
@@ -27,7 +27,10 @@ def comparar_graficos_p0(arquivo1, arquivo2, label1=r'$p_0 = 0.1$', label2=r'$p_
     '''
     Compara duas series temporais da fracao de cooperadores no mesmo grafico.
 
-    Os arquivos sao CSVs de serie (duas colunas: tempo, fracao).
+    Os arquivos sao CSVs de serie (duas colunas: tempo, fracao). Sao as series
+    de BA para o mesmo m e dois p0 diferentes - o experimento de condicao
+    inicial. Antes de ba_varia_grau_medio.py varrer p0, o segundo arquivo so
+    existia se alguem editasse o script e rodasse de novo.
     '''
     t_list1, frac_coop1 = ler_serie(arquivo1)
     t_list2, frac_coop2 = ler_serie(arquivo2)
@@ -97,6 +100,12 @@ def comparar_graficos_WS(arquivo1, arquivo2, arquivo3):
 
 
 def comparar_todos_graficos(arquivo1, arquivo2, arquivo3, arquivo4, arquivo5, arquivo6):
+    # arquivo1 e o CSV de ba_vs_er.py, cujas tres primeiras colunas sao
+    # Grau_Medio, BA_Media_Frac_Coop, BA_Desvio - exatamente o que ler_csv
+    # devolve. E de la que vem a curva de BA porque aquele experimento roda com
+    # p0 = 0,5, igual a ER, WS e SBM. A varredura de ba_varia_grau_medio usa
+    # p0 = 0,1 e 0,9, entao poria uma condicao inicial diferente no mesmo
+    # grafico.
     BA_grau_medio, BA_media, BA_desvios = ler_csv(arquivo1)
     ER_grau_medio, ER_media, ER_desvios = ler_csv(arquivo2)
 
@@ -125,7 +134,7 @@ def comparar_todos_graficos(arquivo1, arquivo2, arquivo3, arquivo4, arquivo5, ar
     salvar_figura(plt, SAIDA_FIG / 'comparacao_todos_modelos.png')
 
 
-def comparar_WA_transiente(aq1, aq2, aq3, aq4, nome_saida='comparacao_WS_transiente.png'):
+def comparar_ws_transiente(aq1, aq2, aq3, aq4, nome_saida='comparacao_WS_transiente.png'):
     '''Quatro series de transiente do WS, uma por valor de religacao p.'''
     tempo1, media1 = ler_serie(aq1)
     tempo2, media2 = ler_serie(aq2)
@@ -178,21 +187,22 @@ def gerar_tudo():
     ba = lambda nome: csv_de('barabasi_albert', nome)
     er = lambda nome: csv_de('erdos_renyi', nome)
     sbm = lambda nome: csv_de('sbm', nome)
+    comp = lambda nome: csv_de('comparacoes', nome)
 
     tarefas = [
         ('WS: k fixo, varia p', comparar_graficos_WS,
-         [ws('WA_k_2.csv'), ws('WA_k_6.csv'), ws('WA_k_10.csv')]),
+         [ws('ws_varia_p_k_2.csv'), ws('ws_varia_p_k_6.csv'), ws('ws_varia_p_k_10.csv')]),
         ('todos os modelos', comparar_todos_graficos,
-         [ba('Dilema_Barabasi_results.csv'), er('Dilema_erdos_results.csv'),
-          ws('WA_p_0.csv'), ws('WA_p_02.csv'), ws('WA_p_1.csv'),
-          sbm('Dilema_SBM_results_alpha_05.csv')]),
-        ('transiente WS k=10', comparar_WA_transiente,
-         [ws('WA_transiente_k_10_p_0.csv'), ws('WA_transiente_k_10_p_0.02.csv'),
-          ws('WA_transiente_k_10_p_0.2.csv'), ws('WA_transiente_k_10_p_1.csv')]),
+         [comp('ba_vs_er.csv'), er('er_grau_medio.csv'),
+          ws('ws_varia_k_p_0.csv'), ws('ws_varia_k_p_0.02.csv'), ws('ws_varia_k_p_1.csv'),
+          sbm('sbm_grau_medio_alpha_0.5.csv')]),
+        ('transiente WS k=10', comparar_ws_transiente,
+         [ws('ws_transiente_k_10_p_0.csv'), ws('ws_transiente_k_10_p_0.02.csv'),
+          ws('ws_transiente_k_10_p_0.2.csv'), ws('ws_transiente_k_10_p_1.csv')]),
         ('BA: p0 = 0.1 vs 0.9', comparar_graficos_p0,
-         [ba('fracao_de_cooperadores01.csv'), ba('fracao_de_cooperadores09.csv')]),
+         [ba('ba_serie_m_10_p0_0.1.csv'), ba('ba_serie_m_10_p0_0.9.csv')]),
         ('ER: varia grau medio', grafico,
-         [er('Dilema_erdos_results.csv'), 'erdos_renyi_grau_medio.png']),
+         [er('er_grau_medio.csv'), 'erdos_renyi_grau_medio.png']),
     ]
 
     for nome, funcao, args in tarefas:
@@ -206,14 +216,14 @@ def gerar_tudo():
             print(f"[falhou] {nome}: {type(erro).__name__}: {erro}")
 
     # SBM: uma curva por grau medio, so os arquivos que existirem.
-    lista = [sbm(f'SBM_50s_{k}.csv') for k in (2, 4, 6, 8, 10)]
+    lista = [sbm(f'sbm_alpha_k_{k}_25sim.csv') for k in (2, 4, 6, 8, 10)]
     rotulos = [rf'$\langle k \rangle = {k}$' for k in (2, 4, 6, 8, 10)]
     presentes = [(c, r) for c, r in zip(lista, rotulos) if c.exists()]
     if presentes:
         plot_from_csv([c for c, _ in presentes], [r for _, r in presentes],
                       nome_saida='sbm_alpha_por_grau_medio.png')
     else:
-        print("[pulado] SBM alpha: nenhum SBM_50s_*.csv encontrado")
+        print("[pulado] SBM alpha: nenhum sbm_alpha_k_*_25sim.csv encontrado")
 
 
 if __name__ == "__main__":

@@ -67,7 +67,7 @@ promedia 30 realizações e grava só a curva média.
 
 | # | script | rede | eixo varrido | fixo | pontos | realiz./ponto | custo |
 |---|--------|------|--------------|------|-------:|--------------:|------:|
-| E1 | `ba_varia_grau_medio.py` | BA | m = 1..10 (⟨k⟩ = 2m) | p₀ = 0,9 | 10 | 1 | ~3 min |
+| E1 | `ba_varia_grau_medio.py` | BA | m = 1..10 (⟨k⟩ = 2m), para p₀ ∈ {0,1; 0,9} | — | 20 | 1 | ~6 min |
 | E2 | `ba_prototipo_com_score.py` | BA | — (ponto único) | m = 3, p₀ = 0,5 | 1 | 1 | ~20 s |
 | E3 | `er_varia_grau_medio.py` | ER | ⟨k⟩ = 2..20 | p₀ = 0,5 | 10 | 1 | ~3 min |
 | E4 | `ws_varia_k.py` | WS | k = 2..20, para 5 valores de p | p₀ = 0,5 | 50 | 1 | ~14 min |
@@ -95,17 +95,22 @@ monta as figuras de comparação (segundos). `nucleos.py` só imprime
 `src/barabasi_albert/ba_varia_grau_medio.py`
 
 Rede livre de escala por ligação preferencial: `barabasi_albert_graph(1000, m)`,
-com m = 1..10, então ⟨k⟩ = 2m = 2..20. **p₀ = 0,9** — este é o único experimento
-que parte de 90% de cooperadores; todos os outros partem de 50%.
+com m = 1..10, então ⟨k⟩ = 2m = 2..20. Varre também a **condição inicial**,
+p₀ ∈ {0,1; 0,9} (constante `P0_INICIAIS`) — é o experimento que mostra que os
+dois extremos convergem para o mesmo patamar. Todos os outros experimentos usam
+p₀ = 0,5 fixo.
 
-Saída:
-- `Dilema_Barabasi_p09.csv` — `Grau_Medio, Media_Frac_Coop, Desvio_Padrao_da_Media, Semente_Base`
-- `fracao_de_cooperadores_p0.9.csv` — série do transiente (200 registros = 20 varreduras)
-- `figuras/barabasi_albert_m_{m}.png`, uma por m
+Saída, uma coleção por p₀:
+- `ba_grau_medio_p0_{p0}.csv` — `Grau_Medio, Media_Frac_Coop, Desvio_Padrao_da_Media, Semente_Base`
+- `ba_serie_m_{m}_p0_{p0}.csv` — série do transiente (200 registros = 20 varreduras), uma por m
+- `figuras/ba_m_{m}_p0_{p0}.png`
 
-> **Cuidado:** o CSV da série tem o `p` no nome mas não o `m`, então as 10
-> iterações do laço gravam no mesmo arquivo e só a última (m = 10) sobrevive.
-> Ver [inconsistências](#7-inconsistências-conhecidas).
+A figura `comparacao_fracao_de_cooperadores.png` usa as séries de **m = 10**
+(⟨k⟩ = 20) nos dois p₀.
+
+> Como este experimento roda com p₀ ≠ 0,5, a curva de BA que entra na comparação
+> entre todos os modelos **não** vem daqui: vem de E12, que roda BA a p₀ = 0,5
+> como os demais modelos.
 
 ### E2 — Protótipo com score
 `src/barabasi_albert/ba_prototipo_com_score.py`
@@ -125,7 +130,7 @@ Saída: `ba_prototipo_score_m3.csv` (série completa, 10.000 registros) e figura
 referência: grafo aleatório sem estrutura, contra o qual as outras topologias são
 comparadas.
 
-Saída: `Dilema_erdos_results.csv` (`Grau_Medio, Media_Frac_Coop,
+Saída: `er_grau_medio.csv` (`Grau_Medio, Media_Frac_Coop,
 Desvio_Padrao_da_Media, Semente_Base`) e uma figura da série por ponto.
 
 ### E4 — Watts-Strogatz, varre k com p de religação fixo
@@ -134,7 +139,7 @@ Desvio_Padrao_da_Media, Semente_Base`) e uma figura da série por ponto.
 `watts_strogatz_graph(1000, k, p)` com k = 2, 4, ..., 20 para cada
 p ∈ {0; 0,02; 0,2; 0,6; 1}. p = 0 é o anel regular puro, p = 1 é religação total.
 
-Saída: um CSV por p, `WA_p_{p}.csv` (`k, Media_Frac_Coop,
+Saída: um CSV por p, `ws_varia_k_p_{p}.csv` (`k, Media_Frac_Coop,
 Desvio_Padrao_da_Media, Semente_Base`); figuras em `figuras/varia_k/`.
 
 Resultado notável: em k = 2 a fração fica exatamente 1,0 para todo p — o anel
@@ -146,7 +151,7 @@ trava em cooperação total.
 O transposto de E4: p = 0; 0,1; ...; 1,0 (11 valores) para cada k ∈ {2, 6, 10}.
 É o eixo que testa se a transição small-world afeta a cooperação.
 
-Saída: um CSV por k, `WA_k_{k}.csv` (`p, Media_Frac_Coop,
+Saída: um CSV por k, `ws_varia_p_k_{k}.csv` (`p, Media_Frac_Coop,
 Desvio_Padrao_da_Media, Semente_Base`); figuras em `figuras/varia_p/`.
 
 Alimenta a figura `comparacao_WS_k.png`.
@@ -161,7 +166,7 @@ ponto, para a curva sair lisa. Não descarta transiente — o transiente é o ob
 k ∈ {2, 6, 10} × p ∈ {0; 0,02; 0,2; 1} = 12 curvas, 360 simulações.
 `multiprocessing.Pool()` sem argumento: usa todos os núcleos.
 
-Saída: `WA_transiente_k_{k}_p_{p}.csv` (`Tempo_varreduras, Media_Frac_Coop,
+Saída: `ws_transiente_k_{k}_p_{p}.csv` (`Tempo_varreduras, Media_Frac_Coop,
 Semente_Base`) e uma figura por k com as quatro curvas de p sobrepostas.
 
 ### E7 — SBM, varre α com ⟨k⟩ = 4
@@ -198,12 +203,10 @@ O experimento mais caro: E8 repetido para cada ⟨k⟩ = 2, 4, ..., 20. São
 curvas α × ρ, uma por grau médio — a evidência principal de que α não importa e
 ⟨k⟩ importa.
 
-Saída: `SBM_50s_{k}.csv` por grau médio (`Alpha, Media_Frac_Coop,
-Desvio_Padrao_da_Media, Semente_Base`) e figura por k.
-
-> **Cuidado:** o `50s` do nome vem de uma versão anterior com 50 realizações; o
-> código roda 25. O nome foi mantido para não quebrar a correspondência com os
-> dados já gerados e com `gerar_graficos.py`.
+Saída: `sbm_alpha_k_{k}_25sim.csv` por grau médio (`Alpha, Media_Frac_Coop,
+Desvio_Padrao_da_Media, Semente_Base`) e figura por k. O nome segue o mesmo
+padrão de E7 (`_1sim`) e E8 (`_20sim`), então os três varrimentos de α convivem
+sem colidir.
 
 ### E10 — SBM, varre grau médio com α = 0,5
 `src/sbm/sbm_varia_k.py`
@@ -211,7 +214,7 @@ Desvio_Padrao_da_Media, Semente_Base`) e figura por k.
 O corte ortogonal a E7: α fixo em 0,5, ⟨k⟩ = 2..20, uma realização por ponto. É
 a curva de SBM que entra na comparação entre todos os modelos.
 
-Saída: `Dilema_SBM_results_alpha_0.5.csv` (`Grau_Medio, Media_Frac_Coop,
+Saída: `sbm_grau_medio_alpha_0.5.csv` (`Grau_Medio, Media_Frac_Coop,
 Desvio_Padrao_da_Media, Semente_Base`) e figura.
 
 ### E11 — SBM, histograma de realizações
@@ -237,6 +240,10 @@ Saída: `ba_vs_er.csv` com as duas redes lado a lado (`Grau_Medio,
 BA_Media_Frac_Coop, BA_Desvio_Padrao_da_Media, ER_Media_Frac_Coop,
 ER_Desvio_Padrao_da_Media, Semente_Base`) e `comparacao_modelos.png`.
 
+Como as três primeiras colunas são exatamente `Grau_Medio, Media, Desvio` de BA,
+este CSV também alimenta a curva de BA da figura `comparacao_todos_modelos.png`
+— é a única fonte de BA a p₀ = 0,5, que é o valor usado por ER, WS e SBM.
+
 ### Montagem das figuras de comparação
 `src/comparacoes/gerar_graficos.py`
 
@@ -260,36 +267,58 @@ estão fora do versionamento (ver [README](README.md#estrutura)).
 
 `resultados/<modelo>/csv/` está vazio à espera da regeração.
 
-## 7. Inconsistências conhecidas
+## 7. Convenção de nomes e o que já foi resolvido
 
-Coisas a decidir **antes** de gastar 3 horas regerando, porque afetam o que sai:
+Os nomes de saída seguem hoje um padrão único: `<modelo>_<eixo>[_<parâmetro>].csv`,
+tudo minúsculo, sem `Dilema_` nem `WA_`. Cada nome diz qual experimento o gerou e
+com que parâmetro:
 
-1. **`gerar_graficos.py` procura quatro nomes que nenhum script produz.** As
-   figuras "todos os modelos" e "BA p₀ = 0,1 vs 0,9" são puladas hoje:
+| experimento | CSV |
+|---|---|
+| E1 | `ba_grau_medio_p0_{p0}.csv`, `ba_serie_m_{m}_p0_{p0}.csv` |
+| E2 | `ba_prototipo_score_m{m}.csv` |
+| E3 | `er_grau_medio.csv` |
+| E4 | `ws_varia_k_p_{p}.csv` |
+| E5 | `ws_varia_p_k_{k}.csv` |
+| E6 | `ws_transiente_k_{k}_p_{p}.csv` |
+| E7, E8, E9 | `sbm_alpha_k_{k}_{n}sim.csv` (n = 1, 20, 25) |
+| E10 | `sbm_grau_medio_alpha_{alpha}.csv` |
+| E11 | `sbm_histograma_alpha_{alpha}_k_{k}.csv` |
+| E12 | `ba_vs_er.csv` |
 
-   | procurado | produzido |
-   |---|---|
-   | `Dilema_Barabasi_results.csv` | `Dilema_Barabasi_p09.csv` |
-   | `Dilema_SBM_results_alpha_05.csv` | `Dilema_SBM_results_alpha_0.5.csv` |
-   | `WA_p_02.csv` | `WA_p_0.02.csv` |
-   | `fracao_de_cooperadores01.csv` / `09.csv` | `fracao_de_cooperadores_p0.9.csv` |
+**Renomear foi possível porque os dados antigos saíram do versionamento.** Os
+nomes legados existiam para não quebrar a correspondência com CSVs já gerados;
+uma vez que esses foram para `legacy/` e tudo será regerado, a compatibilidade
+deixou de custar algo. Os arquivos em `legacy/` mantêm a nomenclatura antiga —
+não confunda as duas.
 
-2. **A série de transiente de E1 se sobrescreve.** O nome
-   `fracao_de_cooperadores_p{p}.csv` não inclui `m`, então as 10 iterações
-   gravam no mesmo arquivo e só m = 10 sobra.
+Resolvido junto com a renomeação:
 
-3. **A figura `comparacao_fracao_de_cooperadores.png` precisa de dois p₀.** Ela
-   compara p₀ = 0,1 com p₀ = 0,9, mas `p` está fixo em 0,9 no código de E1 — o
-   segundo dado exige rodar o script uma segunda vez com o valor trocado.
+1. **`gerar_graficos.py` procurava quatro nomes que nenhum script produzia**
+   (`Dilema_Barabasi_results`, `Dilema_SBM_results_alpha_05`, `WA_p_02`,
+   `fracao_de_cooperadores01/09`), e por isso pulava em silêncio as figuras
+   "todos os modelos" e "BA p₀ = 0,1 vs 0,9". Produtor e consumidor agora usam
+   os mesmos nomes.
+2. **A série de transiente de E1 se sobrescrevia:** o nome não incluía `m`, e as
+   10 iterações gravavam no mesmo arquivo. Agora é `ba_serie_m_{m}_p0_{p0}.csv`.
+3. **p₀ estava fixo em 0,9 no corpo da função de E1.** A figura que contrapõe
+   p₀ = 0,1 e 0,9 dependia de alguém editar o arquivo e rodar de novo, sem
+   registro de qual valor gerou qual CSV — os legados
+   `Dilema_Barabasi_p03/p09.csv` são resquício disso. Virou a varredura
+   `P0_INICIAIS`.
+4. **BA entrava na comparação geral com p₀ = 0,9** enquanto ER, WS e SBM usavam
+   0,5. A curva de BA passou a vir de E12, que roda a p₀ = 0,5.
+5. **`SBM_50s_*.csv` dizia 50 realizações e eram 25.** Agora o nome carrega o
+   número que o código usa.
 
-4. **`SBM_50s_*.csv` são 25 realizações, não 50.** Nome herdado.
+### Ainda em aberto
 
-5. **BA aparece com dois p₀ diferentes** (0,9 em E1, 0,5 em E12). A figura de
-   comparação entre todos os modelos usa a curva de E1, então mistura p₀ = 0,9
-   com as demais curvas em p₀ = 0,5.
-
-6. **E7 e E8 medem a mesma coisa** com 1 e 20 realizações. E7 só se justifica
-   pelas figuras de série temporal por α; o ponto científico está em E8.
+- **E7 e E8 medem a mesma coisa** com 1 e 20 realizações. E7 se sustenta pelas
+  figuras de série temporal por α, mas o CSV dele é dominado pelo de E8. Decidir
+  se E7 vira só gerador de figuras ou se sai.
+- **A dinâmica está copiada em 11 arquivos** (ver [seção 9](#9-onde-mexer-para-estender)).
+- **Barras de erro sobre série temporal correlacionada** nos experimentos de uma
+  realização só (limitação 6 do README). E8, E9 e E11 não têm esse problema.
 
 ## 8. Como regerar tudo
 
@@ -350,7 +379,7 @@ python src/comparacoes/gerar_graficos.py
 **A mesma semente em todos** mantém a coleção coerente: os rótulos de varredura
 já garantem que scripts diferentes não repitam a mesma corrente aleatória.
 
-Custo total ~3 h de relógio em sequência; ~1 h 30 se os sequenciais forem
+Custo total ~3 h de relógio em sequência (3.143 simulações); ~1 h 30 se os sequenciais forem
 disparados em paralelo com E9. Os três com `multiprocessing` (E6, E9, E11) não
 devem rodar simultaneamente entre si — brigam pelos mesmos núcleos.
 

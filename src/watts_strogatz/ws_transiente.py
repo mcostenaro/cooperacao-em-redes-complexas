@@ -149,7 +149,7 @@ def main(k, semente):
         curvas.append((p, t_list, medias))
 
         salvar_csv(
-            SAIDA_CSV / f'WA_transiente_k_{k}_p_{p}.csv',
+            SAIDA_CSV / f'ws_transiente_k_{k}_p_{p}.csv',
             ['Tempo_varreduras', 'Media_Frac_Coop'],
             zip(t_list, medias),
             semente=semente,
@@ -169,7 +169,7 @@ def main(k, semente):
     plt.grid(True)
     plt.legend(loc='upper right')
     plt.tick_params(axis='both', which='major', labelsize=13)
-    salvar_figura(plt, SAIDA_FIG / f'WA_transiente_k_{k}.png')
+    salvar_figura(plt, SAIDA_FIG / f'ws_transiente_k_{k}.png')
 
 
 def loop(semente):

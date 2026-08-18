@@ -15,6 +15,12 @@ SAIDA_CSV, SAIDA_FIG = diretorios('barabasi_albert')
 # Rotulo desta varredura nas sementes derivadas.
 VARREDURA = 'ba_varia_grau_medio'
 
+# Condicoes iniciais varridas. A figura comparacao_fracao_de_cooperadores.png
+# contrapoe p0 = 0,1 a p0 = 0,9; antes p0 estava fixo no corpo da funcao e o
+# segundo dado exigia editar o arquivo e rodar de novo, sem registro de qual
+# valor gerou qual CSV. Acrescentar um valor aqui basta para varrer mais um.
+P0_INICIAIS = [0.1, 0.9]
+
 
 #função para pegar um nó aleatório
 def get_random_node(graph, gerador_random):
@@ -25,13 +31,12 @@ def get_random_neighbor(graph, node, gerador_random):
     return gerador_random.choice(list(graph.neighbors(node)))
 
 #função principal
-def dilema_prisioneiro(n, m, semente):
+def dilema_prisioneiro(n, m, p, semente):
 
     #geradores explicitos: nada de random/np.random globais
     gerador_numpy, gerador_random = geradores(semente)
 
-    #distribuição da quantidade de cooperadores iniciais, grau medio <k> = 2*m
-    p = 0.9
+    #p = fracao de cooperadores iniciais; grau medio <k> = 2*m
 
     #tempo de evolucao, em varreduras
     t_list = [0.0]
@@ -101,7 +106,7 @@ def dilema_prisioneiro(n, m, semente):
     t_list_trans = t_list[:200]
 
     salvar_csv(
-        SAIDA_CSV / f'fracao_de_cooperadores_p{p}.csv',
+        SAIDA_CSV / f'ba_serie_m_{m}_p0_{p}.csv',
         ['Tempo_varreduras', 'Fracao_Cooperadores'],
         zip(t_list_trans, coop_trans),
         semente=semente_registro(semente),
@@ -127,11 +132,11 @@ def dilema_prisioneiro(n, m, semente):
             color='black', fontsize=20)
 
     # Salvar o gráfico
-    salvar_figura(plt, SAIDA_FIG / f'barabasi_albert_m_{m}.png')
+    salvar_figura(plt, SAIDA_FIG / f'ba_m_{m}_p0_{p}.png')
 
     return media_frac_coop, desvio_padrao_da_media
 
-def loop(semente):
+def loop(p, semente):
 
     medias = []
     desvios = []
@@ -140,27 +145,34 @@ def loop(semente):
     for m in range(1, 11):
         start_loop_time = time.time()
 
-        media, desvio = dilema_prisioneiro(1000, m, semente_de_ponto(semente, VARREDURA, m))
+        media, desvio = dilema_prisioneiro(
+            1000, m, p, semente_de_ponto(semente, VARREDURA, p, m))
         medias.append(media)
         desvios.append(desvio)
         graus_medios.append(2*m)
     
         end_loop_time = time.time()  # Fim do loop
         loop_duration = round(end_loop_time - start_loop_time, 2)
-        print(f"loop {round(m)} concluido em {loop_duration} segundos")
-    
+        print(f"p0 = {p}, loop {round(m)} concluido em {loop_duration} segundos")
+
     salvar_csv(
-        SAIDA_CSV / 'Dilema_Barabasi_p09.csv',
+        SAIDA_CSV / f'ba_grau_medio_p0_{p}.csv',
         ['Grau_Medio', 'Media_Frac_Coop', 'Desvio_Padrao_da_Media'],
         zip(graus_medios, medias, desvios),
         semente=semente,
     )
 
+
+def loop_p0(semente):
+    for p in P0_INICIAIS:
+        loop(p, semente)
+
+
 if __name__ == "__main__":
     start_time = time.time()
     SEMENTE = semente_base()
     print(f"semente-base = {SEMENTE}")
-    loop(SEMENTE)
+    loop_p0(SEMENTE)
     end_time = time.time()
     print(f"Tempo de execução: {round(end_time - start_time, 2)} segundos")
 

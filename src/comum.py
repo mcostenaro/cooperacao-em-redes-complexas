@@ -259,8 +259,8 @@ def ler_csv(caminho):
 def ler_serie(caminho):
     """Le um CSV de serie temporal de duas colunas: (tempo, valores).
 
-    Os CSVs de transiente (fracao_de_cooperadores*.csv, WA_transiente_*.csv)
-    tem duas colunas, nao tres. Usar ler_csv neles levanta IndexError.
+    Os CSVs de serie (ba_serie_*.csv, ws_transiente_*.csv) tem duas colunas,
+    nao tres. Usar ler_csv neles levanta IndexError.
     """
     tempos = []
     valores = []

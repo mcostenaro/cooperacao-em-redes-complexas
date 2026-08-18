@@ -134,7 +134,7 @@ def loop(semente):
 
     # Salvando as listas em um arquivo CSV
     salvar_csv(
-        SAIDA_CSV / f'Dilema_SBM_results_alpha_{alpha}.csv',
+        SAIDA_CSV / f'sbm_grau_medio_alpha_{alpha}.csv',
         ['Grau_Medio', 'Media_Frac_Coop', 'Desvio_Padrao_da_Media'],
         ([round(k_list[i], 1), medias[i], desvios[i]] for i in range(len(k_list))),
         semente=semente,
@@ -147,7 +147,7 @@ def loop(semente):
     plt.ylabel('Média da fração de cooperadores', fontsize=14)
     plt.ylim(0, 1)
     plt.grid(True)
-    salvar_figura(plt, SAIDA_FIG / f'sbm_varia_k_alpha_{alpha}.png')
+    salvar_figura(plt, SAIDA_FIG / f'sbm_grau_medio_alpha_{alpha}.png')
 
 
 if __name__ == "__main__":

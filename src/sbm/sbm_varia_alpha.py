@@ -120,7 +120,7 @@ def dilema_prisioneiro(sizes, p, n, alpha, semente):
              color='black', fontsize=12)
 
     # Antes todas as iteracoes gravavam em SBM_verificacao.png e se sobrescreviam.
-    salvar_figura(plt, SAIDA_FIG / f'SBM_serie_alpha_{round(alpha, 1)}.png')
+    salvar_figura(plt, SAIDA_FIG / f'sbm_serie_alpha_{round(alpha, 1)}.png')
 
     return media_frac_coop, desvio_padrao_da_media
 

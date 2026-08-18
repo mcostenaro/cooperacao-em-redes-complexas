@@ -131,7 +131,7 @@ def dilema_prisioneiro(k, semente):
              color='black', fontsize=12)
 
 
-    salvar_figura(plt, SAIDA_FIG / f'Erdos_renyi_p_{p}.png')
+    salvar_figura(plt, SAIDA_FIG / f'er_p_{p}.png')
 
     return media_frac_coop, desvio_padrao_da_media
 
@@ -155,7 +155,7 @@ def loop(semente):
         print(f"loop {round(k/2)} concluido em {loop_duration} segundos")
     
     salvar_csv(
-        SAIDA_CSV / 'Dilema_erdos_results.csv',
+        SAIDA_CSV / 'er_grau_medio.csv',
         ['Grau_Medio', 'Media_Frac_Coop', 'Desvio_Padrao_da_Media'],
         zip(graus_medios, medias, desvios),
         semente=semente,
