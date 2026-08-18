@@ -9,6 +9,9 @@ Código do meu Trabalho de Conclusão de Curso (2024). Este repositório contém
 **versão apresentada**, reorganizada mas com a dinâmica original preservada.
 As limitações do modelo estão documentadas em [Limitações conhecidas](#limitações-conhecidas).
 
+O inventário dos experimentos — o que cada script varre, com que parâmetros, o
+que grava e quanto custa — está em [PROTOCOLO.md](PROTOCOLO.md).
+
 ---
 
 ## Estrutura
