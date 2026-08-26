@@ -7,22 +7,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from comum import (deve_registrar, diretorios, estatisticas, geradores,
-                   salvar_csv, salvar_figura, semente_base, semente_de_ponto,
-                   semente_registro, tempo, total_de_passos)
+                   listas_de_adjacencia, salvar_csv, salvar_figura,
+                   semente_base, semente_de_ponto, semente_registro, sortear_no,
+                   sortear_vizinho, tempo, total_de_passos)
 
 SAIDA_CSV, SAIDA_FIG = diretorios('barabasi_albert')
 
 # Rotulo desta simulacao nas sementes derivadas.
 VARREDURA = 'ba_prototipo_com_score'
 
-
-#função para pegar um nó aleatório
-def get_random_node(graph, gerador_random):
-    return gerador_random.choice(list(graph.nodes()))
-
-#função para pegar um vizinho aleatório do nó escolhido
-def get_random_neighbor(graph, node, gerador_random):
-    return gerador_random.choice(list(graph.neighbors(node)))
 
 #função de recompensa ou punição
 def calc_score(p1, p2):
@@ -69,6 +62,10 @@ def dilema_prisioneiro(semente):
     #grafo aleatório
     G = nx.barabasi_albert_graph(n, m, seed=gerador_numpy, initial_graph=None)
 
+    # Este e o unico script que nao usa comum.evoluir: a regra dele e outra,
+    # com score acumulado. Usa as mesmas listas de adjacencia fixadas uma vez.
+    nos, vizinhos = listas_de_adjacencia(G)
+
     #atribuição de valores
     for i in G.nodes():
         G.nodes[i]['value'] = 1*(gerador_numpy.random() < 1-p)
@@ -86,8 +83,8 @@ def dilema_prisioneiro(semente):
     for i in range(total_de_passos(n)):
 
         #escolhendo nó e seu vizinho
-        random_node = get_random_node(G, gerador_random)
-        random_neighbour = get_random_neighbor(G, random_node, gerador_random)
+        random_node = sortear_no(G, gerador_random, nos)
+        random_neighbour = sortear_vizinho(G, random_node, gerador_random, vizinhos)
 
         #valor do player 1 e 2
         p1_v = G.nodes[random_node]['value']

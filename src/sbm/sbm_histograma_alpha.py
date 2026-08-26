@@ -3,72 +3,32 @@ import numpy as np
 import time
 import sys
 import matplotlib.pyplot as plt
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool
 
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from comum import (deve_registrar, diretorios, estatisticas, geradores,
-                   salvar_csv, salvar_figura, semente_base, semente_de_ponto,
-                   sementes_de_realizacoes, tempo, total_de_passos)
+from comum import (diretorios, estatisticas, evoluir, geradores, processos, salvar_csv,
+                   salvar_figura, semente_base, semente_de_ponto,
+                   sementes_de_realizacoes)
 
 SAIDA_CSV, SAIDA_FIG = diretorios('sbm')
 
 # Rotulo desta simulacao nas sementes derivadas.
 VARREDURA = 'sbm_histograma_alpha'
 
-# Function to get a random node
-def get_random_node(graph, random_gen):
-    return random_gen.choice(list(graph.nodes()))
-
-# Function to get a random neighbor of a node
-def get_random_neighbor(graph, node, random_gen):
-    return random_gen.choice(list(graph.neighbors(node)))
-
 # Main simulation function
 def dilema_prisioneiro(sizes, p, n, np_random, random_gen):
-    t_list = [0.0]
-    coop = []
-    num_coop = 0
+    # Fracao de cooperadores no instante inicial.
+    p_i = 0.5
 
-    prob = 0.5
-
-    # Use np_random as seed for the stochastic_block_model
+    # Grafo aleatorio
     G = nx.stochastic_block_model(
         sizes, p, nodelist=None, seed=np_random, directed=False, selfloops=False, sparse=True
     )
 
-    # Assign initial strategies to nodes
-    for i in G.nodes():
-        G.nodes[i]['value'] = 1 * (np_random.random() < 1 - prob)
-        if G.nodes[i]['value'] == 0:
-            num_coop += 1
-
-    coop.append(num_coop)
-
-    for i in range(total_de_passos(n)):
-        random_node = get_random_node(G, random_gen)
-        if G.degree[random_node] >= 1:
-            random_neighbour = get_random_neighbor(G, random_node, random_gen)
-            p1_v = G.nodes[random_node]['value']
-            p2_v = G.nodes[random_neighbour]['value']
-
-            if p1_v == 0 and p2_v == 1:
-                G.nodes[random_node]['value'] = 1
-                num_coop -= 1
-            elif p1_v == 1 and p2_v == 0:
-                G.nodes[random_neighbour]['value'] = 1
-                num_coop -= 1
-            elif p1_v == 1 and p2_v == 1:
-                G.nodes[random_node]['value'] = 0
-                G.nodes[random_neighbour]['value'] = 0
-                num_coop += 2
-
-        if deve_registrar(i):
-            t_list.append(tempo(i, n))
-            coop.append(num_coop)
-
-    frac_coop = [x / n for x in coop]
+    # Dinamica compartilhada: o laco vive em comum.evoluir
+    t_list, frac_coop = evoluir(G, p_i, np_random, random_gen, n)
 
     # Média e desvio, já descartado o transiente padronizado
     media_frac_coop, desvio_padrao_da_media = estatisticas(frac_coop)
@@ -114,8 +74,7 @@ def loop(semente):
     sementes = sementes_de_realizacoes(
         semente_de_ponto(semente, VARREDURA, k, alpha), num_simulations)
 
-    num_processes = min(8, cpu_count() - 2)  # Use up to 8 processes, leaving 2 CPUs free
-    with Pool(processes=num_processes) as pool:
+    with Pool(processes=processos()) as pool:
         resultados_simulacoes = pool.map(
             run_simulation,
             [(sizes, p, n, semente_da_realizacao) for semente_da_realizacao in sementes]

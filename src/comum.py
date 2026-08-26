@@ -184,6 +184,117 @@ def geradores(semente):
     return gerador_numpy, gerador_random
 
 
+def processos():
+    """Numero de processos dos scripts que usam multiprocessing.
+
+    Deixa dois nucleos livres para a maquina continuar usavel; TCC_PROCESSOS
+    sobrescreve. Antes cada script tinha sua propria politica - Pool() com
+    todos os nucleos, Pool(processes=8) fixo, e min(8, cpu_count() - 2).
+
+    Trocar este numero nao muda resultado nenhum: cada tarefa carrega sua
+    propria semente e pool.map preserva a ordem dos retornos.
+    """
+    pedido = _inteiro_do_ambiente('TCC_PROCESSOS', 0)
+    if pedido > 0:
+        return pedido
+    return max(1, (os.cpu_count() or 1) - 2)
+
+
+def sortear_no(G, gerador_random, nos=None):
+    """Um no do grafo, uniformemente."""
+    return gerador_random.choice(nos if nos is not None else list(G.nodes()))
+
+
+def sortear_vizinho(G, no, gerador_random, vizinhos=None):
+    """Um vizinho de `no`, uniformemente."""
+    if vizinhos is not None:
+        return gerador_random.choice(vizinhos[no])
+    return gerador_random.choice(list(G.neighbors(no)))
+
+
+def listas_de_adjacencia(G):
+    """(lista de nos, dict de listas de vizinhos), fixadas uma unica vez.
+
+    O grafo nao muda durante a dinamica, mas o codigo original chamava
+    list(G.nodes()) e list(G.neighbors(no)) dentro do laco - 10^6 vezes, cada
+    uma reconstruindo uma lista de mil elementos. Pre-computar da exatamente as
+    mesmas listas, na mesma ordem, entao `choice` sorteia o mesmo elemento e
+    consome a mesma quantidade do gerador: o resultado e identico, so mais
+    rapido.
+    """
+    nos = list(G.nodes())
+    return nos, {no: list(G.neighbors(no)) for no in nos}
+
+
+def atribuir_estados(G, p0, gerador_numpy):
+    """Sorteia o estado inicial de cada no e devolve quantos cooperam.
+
+    `p0` e a fracao esperada de cooperadores. value = 0 coopera, 1 delata.
+    """
+    num_coop = 0
+    for no in G.nodes():
+        G.nodes[no]['value'] = 1 * (gerador_numpy.random() < 1 - p0)
+        if G.nodes[no]['value'] == 0:
+            num_coop += 1
+    return num_coop
+
+
+def evoluir(G, p0, gerador_numpy, gerador_random, n=None):
+    """Roda a dinamica sobre G e devolve (tempos, fracao de cooperadores).
+
+    A regra e Win-Stay Lose-Shift: sorteia-se um no e um vizinho dele, e o par
+    passa a valer `s_i XOR s_j` - C com D vira D com D, D com D vira C com C, C
+    com C fica. Nos isolados fazem o passo passar em branco; em BA e WS isso
+    nunca acontece, porque a construcao garante grau >= 1.
+
+    Devolve a serie inteira, sem descartar transiente: quem quer o estacionario
+    passa o resultado por `estatisticas`, quem estuda o transiente (como
+    ws_transiente.py) usa o comeco dela.
+
+    Esta funcao existe porque o mesmo laco estava copiado em 11 scripts. Qualquer
+    mudanca de regra precisava ser replicada, sem nada garantindo que ficassem
+    iguais.
+    """
+    if n is None:
+        n = G.number_of_nodes()
+
+    nos, vizinhos = listas_de_adjacencia(G)
+    num_coop = atribuir_estados(G, p0, gerador_numpy)
+
+    tempos = [0.0]
+    coop = [num_coop]
+
+    for i in range(total_de_passos(n)):
+        no = gerador_random.choice(nos)
+
+        if vizinhos[no]:
+            vizinho = gerador_random.choice(vizinhos[no])
+
+            valor_no = G.nodes[no]['value']
+            valor_vizinho = G.nodes[vizinho]['value']
+
+            if valor_no == 0:
+                # C com D: o cooperador deserta. C com C: nada muda.
+                if valor_vizinho == 1:
+                    G.nodes[no]['value'] = 1
+                    num_coop -= 1
+            elif valor_vizinho == 0:
+                # D com C: o cooperador deserta.
+                G.nodes[vizinho]['value'] = 1
+                num_coop -= 1
+            else:
+                # D com D: ambos passam a cooperar.
+                G.nodes[no]['value'] = 0
+                G.nodes[vizinho]['value'] = 0
+                num_coop += 2
+
+        if deve_registrar(i):
+            tempos.append(tempo(i, n))
+            coop.append(num_coop)
+
+    return tempos, [x / n for x in coop]
+
+
 def total_de_passos(n=N_PADRAO):
     """Numero de passos de Monte Carlo de uma simulacao."""
     return VARREDURAS * n

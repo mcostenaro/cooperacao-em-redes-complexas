@@ -29,8 +29,7 @@ src/
 │   ├── ws_varia_p.py               # k fixo, varre p de religação
 │   └── ws_transiente.py            # curva ρ(t), média de 30 realizações
 ├── sbm/
-│   ├── sbm_varia_alpha.py          # varre α (1 realização por ponto)
-│   ├── sbm_varia_alpha_ensemble.py # idem, 20 realizações
+│   ├── sbm_varia_alpha_ensemble.py # varre α, 20 realizações
 │   ├── sbm_varia_alpha_paralelo.py # idem, 25 realizações, multiprocessing
 │   ├── sbm_varia_k.py              # α fixo, varre ⟨k⟩
 │   └── sbm_histograma_alpha.py     # histograma de 200 realizações, α fixo
@@ -157,9 +156,10 @@ resimular nada (leva segundos):
 python src/comparacoes/gerar_graficos.py
 ```
 
-Os scripts de simulação levam de minutos a horas (10⁶ passos por ponto da
-varredura). Os que usam `multiprocessing` assumem ~8 núcleos; ajuste
-`processes=` conforme sua máquina (`python src/nucleos.py` mostra quantos você tem).
+Um ponto de varredura leva ~2,7 s (10⁶ passos); regerar tudo leva ~35 min. Os
+que usam `multiprocessing` chamam `comum.processos()`, que deixa dois núcleos
+livres — `TCC_PROCESSOS=N` sobrescreve. Mudar esse número não muda resultado
+nenhum: cada tarefa carrega sua própria semente.
 
 ## O modelo
 
@@ -293,6 +293,17 @@ Documentadas aqui porque determinam o alcance das conclusões acima:
   varredura (`P0_INICIAIS`) e o nome do arquivo carrega `m` e `p₀`.
 - A comparação entre todos os modelos misturava BA com p₀ = 0,9 e os demais com
   0,5. A curva de BA passou a vir de `ba_vs_er.py`, que roda a 0,5.
+- A dinâmica estava copiada em 11 scripts, então mudar a regra exigia replicar
+  11 vezes sem nada garantindo que ficassem iguais. Agora vive em
+  `comum.evoluir()`; a única cópia restante é a de `ba_prototipo_com_score.py`,
+  que tem regra própria. O laço também reconstruía `list(G.nodes())` a cada um
+  dos 10⁶ passos — fixar as listas uma vez deu os mesmos resultados (58 CSVs
+  byte a byte) 3,6x mais rápido.
+- Três políticas de paralelização diferentes (`Pool()`, `Pool(processes=8)`,
+  `min(8, cpu_count() - 2)`), uma por script. Agora todas usam
+  `comum.processos()`.
+- `sbm_varia_alpha.py` varria α com uma realização por ponto, medindo o mesmo
+  que `sbm_varia_alpha_ensemble.py` mede com 20. Aposentado.
 - Encoding: nenhum `open()` declarava `encoding=`, então em Windows os CSVs
   saíam em cp1252 e 18 arquivos do SBM tinham "fração" corrompido no cabeçalho
   (bytes U+FFFD gravados no arquivo). Cabeçalhos agora são ASCII sem acento nem
