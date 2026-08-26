@@ -10,7 +10,9 @@ Código do meu Trabalho de Conclusão de Curso (2024). Este repositório contém
 As limitações do modelo estão documentadas em [Limitações conhecidas](#limitações-conhecidas).
 
 O inventário dos experimentos — o que cada script varre, com que parâmetros, o
-que grava e quanto custa — está em [PROTOCOLO.md](PROTOCOLO.md).
+que grava e quanto custa — está em [PROTOCOLO.md](PROTOCOLO.md). A leitura
+física dos resultados, com o mecanismo por trás deles, está em
+[ANALISE.md](ANALISE.md).
 
 ---
 
