@@ -58,10 +58,29 @@ De `src/comum.py`, valem para todo experimento:
 | amostras estacionárias | 9.000 |
 | semente-base padrão | `SEMENTE_PADRAO`, sobrescrevível por `--semente N` |
 
-O desvio gravado é σ/√N sobre a série temporal (subestima a incerteza real —
-limitação 6 do README), **exceto** nos três experimentos com ensemble (E7, E8,
-E10), onde é σ/√N sobre realizações independentes. E6 não grava desvio nenhum:
-promedia 30 realizações e grava só a curva média.
+**A coluna de erro.** Há duas fontes, conforme o experimento:
+
+- **Ensemble** (E7, E8, E10): σ/√N sobre as realizações independentes. É o caso
+  fácil — as amostras são independentes de fato.
+- **Uma realização** (E1, E3, E4, E5, E9, E11): erro do valor médio da série
+  temporal, estimado por **blocagem** (`comum.erro_por_blocagem`). Não se pode
+  usar σ/√N aqui: entre dois registros passam 100 passos, que tocam no máximo
+  200 dos 1000 nós, então a medida seguinte é quase a mesma medida. Contar 9.000
+  amostras onde há uma centena de independentes subestima o erro — medido em ER,
+  por um fator de 3 a 5:
+
+  | | ⟨k⟩ = 6 | ⟨k⟩ = 20 |
+  |---|---|---|
+  | σ/√N (ingênuo) | 0,000219 | 0,000207 |
+  | blocagem (patamar) | 0,00120 | 0,00072 |
+  | razão | 5,5x | 3,5x |
+
+- **E6** não grava erro: promedia 30 realizações e grava só a curva média.
+
+A blocagem sobe os níveis (blocos de 1, 2, 4, ... registros) até o erro estimado
+parar de crescer, e usa esse patamar. Testada contra AR(1), que tem fórmula
+fechada, acerta dentro de ~6% para correlação de 0 a 0,98 — inclusive no caso
+independente, onde devolve σ/√N e não infla a barra à toa.
 
 ## 4. Mapa dos experimentos
 

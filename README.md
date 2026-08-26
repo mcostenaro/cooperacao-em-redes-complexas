@@ -231,11 +231,7 @@ Documentadas aqui porque determinam o alcance das conclusões acima:
    rodada contra *aquele* oponente. Aqui cada nó tem uma ação global única e é
    pareado com um vizinho diferente a cada passo.
 
-6. **Barras de erro subestimadas.** O desvio padrão da média é calculado como
-   `σ/√N` sobre uma série temporal correlacionada, tratando amostras dependentes
-   como independentes.
-
-7. **Os resultados em `legacy/` são anteriores à semeadura.** Foram gerados
+6. **Os resultados em `legacy/` são anteriores à semeadura.** Foram gerados
    quando todo gerador de grafo recebia `seed=None`, então não trazem coluna
    `Semente_Base` e não podem ser regerados exatamente — por isso saíram do
    versionamento. Vale para os números antigos, não para o código: ver
@@ -293,6 +289,12 @@ Documentadas aqui porque determinam o alcance das conclusões acima:
   varredura (`P0_INICIAIS`) e o nome do arquivo carrega `m` e `p₀`.
 - A comparação entre todos os modelos misturava BA com p₀ = 0,9 e os demais com
   0,5. A curva de BA passou a vir de `ba_vs_er.py`, que roda a 0,5.
+- Barras de erro subestimadas: o desvio era `σ/√N` sobre uma série temporal
+  correlacionada, tratando como independentes amostras separadas por 100 passos
+  num grafo de 1000 nós. Medido em ER, o erro real é 3 a 5 vezes maior. Agora é
+  estimado por blocagem (`comum.erro_por_blocagem`), validada contra AR(1). As
+  médias não mudam — só a barra de erro, e só nos experimentos de uma
+  realização; os de ensemble já usavam realizações independentes.
 - A dinâmica estava copiada em 11 scripts, então mudar a regra exigia replicar
   11 vezes sem nada garantindo que ficassem iguais. Agora vive em
   `comum.evoluir()`; a única cópia restante é a de `ba_prototipo_com_score.py`,
