@@ -189,12 +189,14 @@ nós assumem o valor `s_i XOR s_j`.
 
 ## Resultados
 
+Todos os números abaixo saem de `resultados/`, gerados com `Semente_Base = 20242025`.
+
 | Rede | Resultado |
 |------|-----------|
-| Erdős-Rényi | ρ cai de 0,78 (⟨k⟩=2) e satura em ~0,51 conforme ⟨k⟩ cresce |
-| Barabási-Albert | mesma tendência decrescente com ⟨k⟩ = 2m |
-| Watts-Strogatz, k=2 | ρ = 1,0 exato para todo p de religação (anel trava em cooperação) |
-| SBM | ρ ≈ 0,628 constante para α de 0,1 a 0,9, com ⟨k⟩ fixo |
+| Erdős-Rényi | ρ cai de 0,797 (⟨k⟩=2) para 0,515 ± 0,0007 (⟨k⟩=20) |
+| Barabási-Albert | mesma tendência; fica ~0,004 a 0,008 acima do ER no mesmo ⟨k⟩ |
+| Watts-Strogatz, k=2 | ρ = 1,0 exato para todo p de religação (o anel trava em cooperação) |
+| SBM | ρ = 0,629 sem tendência em α de 0,1 a 0,9, com ⟨k⟩ fixo |
 
 **Conclusão.** O parâmetro de controle é o **grau médio**, não a topologia. A
 estrutura de comunidades (α no SBM, com ⟨k⟩ mantido constante) não afeta o
@@ -335,10 +337,6 @@ Documentadas aqui porque determinam o alcance das conclusões acima:
 | — | `src/comum.py` (novo) |
 
 ## Próximos passos
-
-Regerar os resultados com semente registrada, repovoando
-`resultados/<modelo>/csv/`. O que existe hoje está em `legacy/` e vem de antes da
-padronização da amostragem e da semeadura (limitação 7).
 
 Reescrita da dinâmica para teoria de jogos evolutiva padrão, mantendo os mesmos
 modelos de rede para comparação direta:
