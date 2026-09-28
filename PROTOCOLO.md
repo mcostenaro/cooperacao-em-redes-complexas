@@ -17,8 +17,9 @@ nós, varridas pelo mesmo eixo sempre que possível — o **grau médio ⟨k⟩*
 um eixo próprio de cada família (religação no Watts-Strogatz, força de comunidade
 no SBM).
 
-Resposta obtida: o parâmetro de controle é o grau médio, não a topologia. Ver
-[Resultados](README.md#resultados).
+Resposta obtida: entre redes aleatórias, o parâmetro de controle é o grau médio;
+a topologia só pesa em grau baixo, quando a rede é regular (o anel do
+Watts-Strogatz). Ver [Resultados](README.md#resultados).
 
 ## 2. A dinâmica (idêntica em todos os experimentos)
 
@@ -82,6 +83,13 @@ A blocagem sobe os níveis (blocos de 1, 2, 4, ... registros) até o erro estima
 parar de crescer, e usa esse patamar. Testada contra AR(1), que tem fórmula
 fechada, acerta dentro de ~6% para correlação de 0 a 0,98 — inclusive no caso
 independente, onde devolve σ/√N e não infla a barra à toa.
+
+**O que a barra de uma realização não cobre.** A blocagem mede a flutuação
+temporal da rede que foi sorteada. Outra rede com os mesmos parâmetros dá outra
+média, e em grau baixo essa variação é maior que a barra: pelos ensembles do SBM
+(E8, E10), ~0,015 em ⟨k⟩ = 2, ~0,005 em 4, ~0,002 em 6, e ~0,001 (igual à barra)
+de ⟨k⟩ = 8 em diante. Comparar redes diferentes em ⟨k⟩ ≤ 6 exige usar esse
+espalhamento, não a barra. Ver [ANALISE](ANALISE.md).
 
 ## 4. Mapa dos experimentos
 
@@ -165,8 +173,14 @@ p ∈ {0; 0,02; 0,2; 0,6; 1}. p = 0 é o anel regular puro, p = 1 é religação
 Saída: um CSV por p, `ws_varia_k_p_{p}.csv` (`k, Media_Frac_Coop,
 Desvio_Padrao_da_Media, Semente_Base`); figuras em `figuras/varia_k/`.
 
-Resultado notável: em k = 2 a fração fica exatamente 1,0 para todo p — o anel
-trava em cooperação total.
+Resultado notável: em k = 2 a fração fica exatamente 1,0 para todo p — a
+dinâmica é absorvida em cooperação total em poucas dezenas de varreduras.
+
+> **Dois pontos de k = 4 não estão estacionários.** Com p = 0 o anel também é
+> absorvido em 1,0, mas entre ~900 e ~1300 varreduras, na borda das 1000
+> simuladas: o 0,903 do CSV é uma média sobre a absorção em andamento. Com
+> p = 0,02 a série ainda sobe no fim da janela (0,717 no CSV, ~0,735 com 5000
+> varreduras). Ver [limitação 7](README.md#limitações-conhecidas).
 
 ### E5 — Watts-Strogatz, varre p de religação com k fixo
 `src/watts_strogatz/ws_varia_p.py`
@@ -243,7 +257,8 @@ Desvio_Padrao_da_Media, Semente_Base`) e figura.
 Não varre nada: fixa α = 0,5 e ⟨k⟩ = 4 e roda **200 realizações independentes**
 para mostrar a distribuição da média estacionária entre realizações. Responde
 "qual é a dispersão real entre realizações", que é justamente o que a barra de
-erro σ/√N sobre série não mede.
+erro sobre a série de uma realização não mede. Resposta: σ = 0,0051, contra
+0,0011 da barra por blocagem nesse grau.
 
 Saída: `sbm_histograma_alpha_0.5_k_4.csv` (`Realizacao, Media_Frac_Coop,
 Semente_Base` — as 200 realizações cruas, para refazer o histograma sem
@@ -349,10 +364,15 @@ Resolvido junto com a renomeação:
 
 ### Ainda em aberto
 
-- **Nada bloqueia a regeração.** O que resta é escopo de reescrita do modelo, não
-  correção: matriz de payoff não usada, ausência de dinâmica evolutiva, e
-  ausência de varredura do parâmetro de tentação — ver
-  [Limitações conhecidas](README.md#limitações-conhecidas).
+- **Dois pontos do WS com k = 4 (p = 0 e p = 0,02) não convergiram** nas 1000
+  varreduras. Corrigir exige mais varreduras nesses pontos, ou um critério de
+  parada por absorção — muda o protocolo, então ficou fora da regeração.
+- **Os experimentos de uma realização** (E1, E3, E4, E5, E9, E11) não medem a
+  variação entre redes, que domina em ⟨k⟩ ≤ 6. Trocá-los por ensembles fecharia
+  as comparações em grau baixo (e a de BA contra ER, E11).
+- **Escopo de reescrita do modelo**, não correção: matriz de payoff não usada,
+  ausência de dinâmica evolutiva, e ausência de varredura do parâmetro de
+  tentação — ver [Limitações conhecidas](README.md#limitações-conhecidas).
 
 ## 8. Como regerar tudo
 

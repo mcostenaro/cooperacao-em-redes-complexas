@@ -194,19 +194,33 @@ Todos os números abaixo saem de `resultados/`, gerados com `Semente_Base = 2024
 | Rede | Resultado |
 |------|-----------|
 | Erdős-Rényi | ρ cai de 0,797 (⟨k⟩=2) para 0,515 ± 0,0007 (⟨k⟩=20) |
-| Barabási-Albert | mesma tendência; fica ~0,004 a 0,008 acima do ER no mesmo ⟨k⟩ |
-| Watts-Strogatz, k=2 | ρ = 1,0 exato para todo p de religação (o anel trava em cooperação) |
-| SBM | ρ = 0,629 sem tendência em α de 0,1 a 0,9, com ⟨k⟩ fixo |
+| Barabási-Albert | mesma tendência; de ⟨k⟩ = 8 em diante fica ~0,003 a 0,008 acima do ER |
+| SBM | ρ = 0,629 sem tendência em α de 0,1 a 0,9, com ⟨k⟩ = 4 fixo; plano em α para todo ⟨k⟩ de 2 a 20 |
+| Watts-Strogatz, k=2 | ρ = 1,0 exato para todo p de religação: a dinâmica é absorvida em cooperação total |
+| Watts-Strogatz, k=4 a 6 | a religação importa: em k=6, ρ cai de 0,592 (anel, p=0) para 0,560 (p=1); em k=4, o anel também é absorvido em 1,0 ([ver limitação 7](#limitações-conhecidas)) |
 
-**Conclusão.** O parâmetro de controle é o **grau médio**, não a topologia. A
+**Conclusão.** Entre redes aleatórias — ER, BA, SBM e WS totalmente religado —
+o parâmetro de controle é o **grau médio**: de ⟨k⟩ = 4 em diante, no mesmo ⟨k⟩
+elas concordam dentro de ~0,01, enquanto ⟨k⟩ de 2 a 20 move ρ em ~0,3. A
 estrutura de comunidades (α no SBM, com ⟨k⟩ mantido constante) não afeta o
-resultado.
+resultado. As exceções estão em grau baixo: a rede **regular** (o anel do
+Watts-Strogatz) com k ≤ 6 fica acima das redes aleatórias e com k ≤ 4 é
+absorvida em cooperação total, e em ⟨k⟩ = 2 as redes aleatórias se separam
+(o WS religado também absorve, ER, BA e SBM não). A distribuição de graus tem um
+efeito pequeno mas mensurável (BA > ER a partir de ⟨k⟩ = 8).
 
 Isso é consistente com o campo médio da regra: sorteando um par aleatório,
 `E[Δρ] ∝ 2(1−ρ)(1−2ρ)`, cujo ponto fixo estável é **ρ\* = 1/2**, independente da
 rede. Os desvios observados em relação a 1/2 são correções de conectividade
-finita e de regularidade da rede. Os dados confirmam: ER com ⟨k⟩=20 dá 0,514, e
-condições iniciais p₀ = 0,1 e p₀ = 0,9 convergem ambas para ≈ 0,54.
+finita e de regularidade da rede. Os dados confirmam: ER com ⟨k⟩=20 dá 0,515, e
+condições iniciais p₀ = 0,1 e p₀ = 0,9 convergem ambas para ≈ 0,52 (BA,
+⟨k⟩ = 20).
+
+O ponto fixo em ½ é **quase-estacionário**, não estacionário: todos-C é
+absorvente e alcançável de qualquer estado, então numa rede finita a dinâmica
+termina nele. Para ⟨k⟩ ≥ 6 isso leva muito mais que as 1000 varreduras
+simuladas e o platô medido é o que se observa; em redes regulares de grau baixo
+acontece dentro da simulação. Ver [ANALISE](ANALISE.md), seções 2 e 5.
 
 ## Limitações conhecidas
 
@@ -240,6 +254,25 @@ Documentadas aqui porque determinam o alcance das conclusões acima:
    `Semente_Base` e não podem ser regerados exatamente — por isso saíram do
    versionamento. Vale para os números antigos, não para o código: ver
    [Reprodutibilidade](#reprodutibilidade).
+
+7. **Dois pontos do Watts-Strogatz não estão estacionários.** Com k = 4 e p = 0
+   o anel é absorvido em cooperação total entre ~900 e ~1300 varreduras
+   (medido com três sementes), na borda das 1000 simuladas: o 0,90 gravado é
+   uma média sobre a absorção em andamento, e o valor de longo prazo é 1,0. Com
+   k = 4 e p = 0,02 a série ainda sobe no fim da janela: o CSV tem 0,717, e
+   rodando 5000 varreduras o platô fica em ~0,735. Os dois pontos aparecem em
+   k = 4 na figura de comparação entre todos os modelos. Os demais casos
+   testados em 5000 varreduras (WS k=4 com p = 0,2 e 1, WS k=6 com p = 0, ER e
+   BA com ⟨k⟩ = 4) ficam estáveis.
+
+8. **A barra dos experimentos de uma realização não inclui a variação entre
+   redes.** A blocagem mede a flutuação temporal *daquela* rede sorteada. Outra
+   rede com os mesmos parâmetros dá outra média, e em grau baixo essa diferença
+   domina: com α = 0,5 e ⟨k⟩ = 4, as 200 realizações de E10 se espalham com
+   σ = 0,0051, contra 0,0011 da barra por blocagem. Pelos ensembles do SBM
+   (E8), o espalhamento entre realizações é ~0,015 em ⟨k⟩ = 2, ~0,005 em 4,
+   ~0,002 em 6 e se iguala à barra por blocagem (~0,001) de ⟨k⟩ = 8 em diante.
+   Comparações entre redes diferentes em ⟨k⟩ ≤ 6 precisam levar isso em conta.
 
 ### Pontos menores
 
