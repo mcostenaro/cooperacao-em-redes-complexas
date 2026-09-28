@@ -252,8 +252,9 @@ Documentadas aqui porque determinam o alcance das conclusões acima:
   de normalização em código perdido.
 - Os CSVs históricos `Dilema_SBM_results_k_*.csv` vieram de `sbm_varia_alpha.py`
   ou de `sbm_varia_alpha_ensemble.py`, que gravavam no mesmo arquivo e se
-  sobrescreviam. Não há registro de qual. Hoje os três varrimentos de α escrevem
-  `sbm_alpha_k_{k}_{n}sim.csv`, com n = 1, 20 ou 25.
+  sobrescreviam. Não há registro de qual. Hoje as duas varreduras de α que
+  restam escrevem `sbm_alpha_k_{k}_{n}sim.csv`, com n = 20 ou 25
+  (`sbm_varia_alpha.py`, o de uma realização, foi aposentado).
 - Nos CSVs em `legacy/` a coluna de tempo é índice de registro, não varredura.
   Os cabeçalhos deles não foram renomeados justamente para não mascarar isso.
 - A nomenclatura de `legacy/` é a antiga (`WA_`, `Dilema_`), diferente da atual —

@@ -60,8 +60,9 @@ De `src/comum.py`, valem para todo experimento:
 
 **A coluna de erro.** Há duas fontes, conforme o experimento:
 
-- **Ensemble** (E7, E8, E10): σ/√N sobre as realizações independentes. É o caso
-  fácil — as amostras são independentes de fato.
+- **Ensemble** (E7, E8): σ/√N sobre as realizações independentes. É o caso
+  fácil — as amostras são independentes de fato. E10 também é ensemble, mas
+  grava as realizações cruas em vez de uma barra de erro.
 - **Uma realização** (E1, E3, E4, E5, E9, E11): erro do valor médio da série
   temporal, estimado por **blocagem** (`comum.erro_por_blocagem`). Não se pode
   usar σ/√N aqui: entre dois registros passam 100 passos, que tocam no máximo
@@ -186,7 +187,7 @@ Alimenta a figura `comparacao_WS_k.png`.
 ponto, para a curva sair lisa. Não descarta transiente — o transiente é o objeto.
 
 k ∈ {2, 6, 10} × p ∈ {0; 0,02; 0,2; 1} = 12 curvas, 360 simulações.
-`multiprocessing.Pool()` sem argumento: usa todos os núcleos.
+Paralelo, com `comum.processos()` (núcleos − 2).
 
 Saída: `ws_transiente_k_{k}_p_{p}.csv` (`Tempo_varreduras, Media_Frac_Coop,
 Semente_Base`) e uma figura por k com as quatro curvas de p sobrepostas.
@@ -218,14 +219,14 @@ Saída: `sbm_alpha_k_4_20sim.csv` e figura com barras de erro.
 `src/sbm/sbm_varia_alpha_paralelo.py`
 
 O experimento mais caro: E7 repetido para cada ⟨k⟩ = 2, 4, ..., 20. São
-10 × 9 × 25 = 2.250 simulações, em `Pool(processes=8)`. Produz a família de
+10 × 9 × 25 = 2.250 simulações, em paralelo com `comum.processos()`. Produz a família de
 curvas α × ρ, uma por grau médio — a evidência principal de que α não importa e
 ⟨k⟩ importa.
 
 Saída: `sbm_alpha_k_{k}_25sim.csv` por grau médio (`Alpha, Media_Frac_Coop,
 Desvio_Padrao_da_Media, Semente_Base`) e figura por k. O nome segue o mesmo
-padrão de E7 (`_1sim`) e E7 (`_20sim`), então os três varrimentos de α convivem
-sem colidir.
+padrão de E7 (`_20sim`), então as duas varreduras de α convivem sem colidir —
+inclusive em ⟨k⟩ = 4, que as duas cobrem.
 
 ### E9 — SBM, varre grau médio com α = 0,5
 `src/sbm/sbm_varia_k.py`
@@ -253,7 +254,8 @@ resimular) e o histograma.
 
 Roda as duas redes no mesmo laço de ⟨k⟩ = 2..20 (BA com m = ⟨k⟩/2), ambas com
 p₀ = 0,5, para a comparação sair sem viés de condição inicial. Note que **E1 usa
-p₀ = 0,9 e este usa 0,5** — os dois números de BA não são intercambiáveis.
+p₀ ∈ {0,1; 0,9} e este usa 0,5** — os números de BA dos dois não são
+intercambiáveis.
 
 Saída: `ba_vs_er.csv` com as duas redes lado a lado (`Grau_Medio,
 BA_Media_Frac_Coop, BA_Desvio_Padrao_da_Media, ER_Media_Frac_Coop,
@@ -278,13 +280,17 @@ Figuras: `comparacao_WS_k.png`, `comparacao_todos_modelos.png`,
 
 ## 6. Estado atual dos dados
 
-**Nenhum experimento foi regerado ainda com semente.** Tudo que existe em
-`resultados/<modelo>/legacy/` veio de antes da padronização da amostragem e da
-semeadura: as médias servem como ordem de grandeza, as barras de erro não são
-comparáveis entre modelos, e nenhum número pode ser reproduzido. Esses arquivos
-estão fora do versionamento (ver [README](README.md#estrutura)).
+**Todos os experimentos foram regerados com semente** (`Semente_Base =
+20242025`, em 26/08/2026). `resultados/<modelo>/csv/` tem 58 CSVs, todos com a
+coluna `Semente_Base`, e as figuras de comparação foram remontadas a partir
+deles. Os números citados no [README](README.md#resultados) saem desses
+arquivos.
 
-`resultados/<modelo>/csv/` está vazio à espera da regeração.
+O que existe em `resultados/<modelo>/legacy/` veio de antes da padronização da
+amostragem e da semeadura: as médias servem como ordem de grandeza, as barras
+de erro não são comparáveis entre modelos, e nenhum número pode ser
+reproduzido. Esses arquivos estão fora do versionamento (ver
+[README](README.md#estrutura)).
 
 ## 7. Convenção de nomes e o que já foi resolvido
 
@@ -307,7 +313,7 @@ com que parâmetro:
 
 **Renomear foi possível porque os dados antigos saíram do versionamento.** Os
 nomes legados existiam para não quebrar a correspondência com CSVs já gerados;
-uma vez que esses foram para `legacy/` e tudo será regerado, a compatibilidade
+uma vez que esses foram para `legacy/` e tudo foi regerado, a compatibilidade
 deixou de custar algo. Os arquivos em `legacy/` mantêm a nomenclatura antiga —
 não confunda as duas.
 
@@ -403,7 +409,7 @@ python src/comparacoes/gerar_graficos.py
 **A mesma semente em todos** mantém a coleção coerente: os rótulos de varredura
 já garantem que scripts diferentes não repitam a mesma corrente aleatória.
 
-Custo total **~35 min** de relógio em sequência (3.124 simulações). Os três com
+Custo total **~35 min** de relógio em sequência (3.134 simulações). Os três com
 `multiprocessing` (E6, E8, E10) não devem rodar simultaneamente entre si —
 brigam pelos mesmos núcleos.
 
