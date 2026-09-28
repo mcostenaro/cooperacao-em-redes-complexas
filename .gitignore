@@ -14,3 +14,7 @@ Thumbs.db
 # dado versionado - estao guardados para conferencia historica.
 resultados/*/legacy/
 resultados/_orfaos/
+
+# Notas de trabalho locais
+PROTOCOLO.md
+ANALISE.md
