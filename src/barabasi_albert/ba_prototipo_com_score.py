@@ -1,17 +1,21 @@
 import networkx as nx
 import matplotlib.pyplot as plt
-import random
-import numpy as np
 import time
+import sys
 
+from pathlib import Path
 
-#função para pegar um nó aleatório
-def get_random_node(graph):
-    return random.choice(list(graph.nodes()))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from comum import (deve_registrar, diretorios, estatisticas, geradores,
+                   listas_de_adjacencia, salvar_csv, salvar_figura,
+                   semente_base, semente_de_ponto, semente_registro, sortear_no,
+                   sortear_vizinho, tempo, total_de_passos)
 
-#função para pegar um vizinho aleatório do nó escolhido
-def get_random_neighbor(graph, node):
-    return random.choice(list(graph.neighbors(node)))
+SAIDA_CSV, SAIDA_FIG = diretorios('barabasi_albert')
+
+# Rotulo desta simulacao nas sementes derivadas.
+VARREDURA = 'ba_prototipo_com_score'
+
 
 #função de recompensa ou punição
 def calc_score(p1, p2):
@@ -35,7 +39,10 @@ def calc_score(p1, p2):
 
 
 #função principal
-def dilema_prisioneiro():
+def dilema_prisioneiro(semente):
+
+    #geradores explicitos: nada de random/np.random globais
+    gerador_numpy, gerador_random = geradores(semente)
 
     #parametros do grafo
     n = 1000
@@ -44,9 +51,8 @@ def dilema_prisioneiro():
     #distribuição da quantidade de cooperadores iniciais, grau medio <k> = 2*m
     p = 0.5
     
-    #tempo de evolucao
-    t = 0
-    t_list = [0]
+    #tempo de evolucao, em varreduras
+    t_list = [0.0]
     #lista de cooperacao
     coop = []
     #numero de agentes cooperando
@@ -54,11 +60,15 @@ def dilema_prisioneiro():
 
 
     #grafo aleatório
-    G = nx.barabasi_albert_graph(n, m, seed=None, initial_graph=None)
+    G = nx.barabasi_albert_graph(n, m, seed=gerador_numpy, initial_graph=None)
 
-    #atribuição de valores 
+    # Este e o unico script que nao usa comum.evoluir: a regra dele e outra,
+    # com score acumulado. Usa as mesmas listas de adjacencia fixadas uma vez.
+    nos, vizinhos = listas_de_adjacencia(G)
+
+    #atribuição de valores
     for i in G.nodes():
-        G.nodes[i]['value'] = 1*(np.random.random() < 1-p)
+        G.nodes[i]['value'] = 1*(gerador_numpy.random() < 1-p)
         G.nodes[i]['score'] = 0
         
         #adicionando numero de cooperadores à lista
@@ -70,11 +80,11 @@ def dilema_prisioneiro():
 
 
     #loop para evolucao temporal
-    for i in range(1100*n):
+    for i in range(total_de_passos(n)):
 
         #escolhendo nó e seu vizinho
-        random_node = get_random_node(G) 
-        random_neighbour = get_random_neighbor(G, random_node)
+        random_node = sortear_no(G, gerador_random, nos)
+        random_neighbour = sortear_vizinho(G, random_node, gerador_random, vizinhos)
 
         #valor do player 1 e 2
         p1_v = G.nodes[random_node]['value']
@@ -138,35 +148,31 @@ def dilema_prisioneiro():
                 G.nodes[random_neighbour]['value'] = 0
                 num_coop += 2'''
 
-     #passo
-        if i%1000 == 0 and i != 0:
-            t += 1
-            t_list.append(t)
+     #registro da serie temporal
+        if deve_registrar(i):
+            t_list.append(tempo(i, n))
             coop.append(num_coop)
 
 
     #fracao de cooperadores
     frac_coop = [x/n for x in coop]
 
-    #descarte dos 1000 primeiros registros
-    coop_resultante = frac_coop[1000:]
+    #media e desvio, ja descartado o transiente padronizado
+    media_frac_coop, desvio_padrao_da_media = estatisticas(frac_coop)
 
-    # Desvio padrão dos cooperadores
-    desvio_padrao = np.std(coop_resultante)
-
-    # Desvio padrão da média
-    N = len(coop_resultante)
-    desvio_padrao_da_media = desvio_padrao / np.sqrt(N)
-
-    #media dos cooperadores 
-    media_frac_coop = np.mean(coop_resultante)
+    salvar_csv(
+        SAIDA_CSV / f'ba_prototipo_score_m{m}.csv',
+        ['Tempo_varreduras', 'Fracao_Cooperadores'],
+        zip(t_list, frac_coop),
+        semente=semente_registro(semente),
+    )
 
 
     # Criar o gráfico
     plt.figure(figsize=(10, 6))
     plt.plot(t_list, frac_coop, color='blue')
-    plt.title('Evolução temporal - Barabasi-albert')
-    plt.xlabel('Tempo')
+    plt.title('Evolução temporal - Barabasi-Albert (protótipo com score)')
+    plt.xlabel('Tempo (varreduras)')
     plt.ylabel('Fração de cooperadores')
     plt.grid(True)
     plt.text(0.95, 0.01, f'm = {m}, <k> = {2*m}', 
@@ -184,11 +190,15 @@ def dilema_prisioneiro():
              transform=plt.gca().transAxes,
              color='black', fontsize=12)
 
-    plt.show()
+    salvar_figura(plt, SAIDA_FIG / f'ba_prototipo_score_m{m}.png')
+
+    return media_frac_coop, desvio_padrao_da_media
 
 if __name__ == "__main__":
     start_time = time.time()
-    dilema_prisioneiro()
+    SEMENTE = semente_base()
+    print(f"semente-base = {SEMENTE}")
+    dilema_prisioneiro(semente_de_ponto(SEMENTE, VARREDURA))
     end_time = time.time()
     print(f"Tempo de execução: {round(end_time - start_time, 2)} segundos")
 

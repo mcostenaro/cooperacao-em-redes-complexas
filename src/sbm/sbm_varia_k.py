@@ -1,114 +1,42 @@
 import networkx as nx
 import matplotlib.pyplot as plt
-import random
-import numpy as np
 import time
-import csv
+import sys
 
 from pathlib import Path
 
-# Diretorios de saida, resolvidos a partir da raiz do repositorio.
-RAIZ = Path(__file__).resolve().parents[2]
-SAIDA_CSV = RAIZ / 'resultados' / 'sbm' / 'csv'
-SAIDA_FIG = RAIZ / 'resultados' / 'sbm' / 'figuras'
-SAIDA_CSV.mkdir(parents=True, exist_ok=True)
-SAIDA_FIG.mkdir(parents=True, exist_ok=True)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from comum import (diretorios, estatisticas, evoluir, geradores, salvar_csv,
+                   salvar_figura, semente_base, semente_de_ponto)
+
+SAIDA_CSV, SAIDA_FIG = diretorios('sbm')
+
+# Rotulo desta varredura nas sementes derivadas.
+VARREDURA = 'sbm_varia_k'
 
 
-#função para pegar um nó aleatório
-def get_random_node(graph):
-    return random.choice(list(graph.nodes()))
-
-#função para pegar um vizinho aleatório do nó escolhido
-def get_random_neighbor(graph, node):
-    return random.choice(list(graph.neighbors(node)))
 
 #função principal
-def dilema_prisioneiro(sizes, p, n):
-    
-    #tempo de evolucao
-    t = 0
-    t_list = [0]
-    #lista de cooperacao
-    coop = []
-    #numero de agentes cooperando
-    num_coop = 0
-
-    prob = 0.5
-
-    #grafo aleatório
-    G = nx.stochastic_block_model(sizes, p, nodelist=None, seed=None, directed=False, selfloops=False, sparse=True)
-
-    #atribuição de valores 
-    for i in G.nodes():
-        G.nodes[i]['value'] = 1*(np.random.random() < 1-prob)
-        
-        #adicionando numero de cooperadores à lista
-        if G.nodes[i]['value'] == 0:
-            num_coop += 1
-
-    #lista em t = 0 de agentes cooperando
-    coop.append(num_coop)
-
-    #loop para evolucao temporal
-    for i in range(1100*n):
-
-        #escolhendo nó
-        random_node = get_random_node(G)
-
-        if G.degree[random_node] >= 1:
-            #escolhendo vizinho 
-            random_neighbour = get_random_neighbor(G, random_node)
-
-            #valor do player 1 e 2
-            p1_v = G.nodes[random_node]['value']
-            p2_v = G.nodes[random_neighbour]['value']
-
-            #0 = coopera, 1 = delata
-            if p1_v == 0:
-                #se p2_v = 0, ambos cooperam  
-                if p2_v == 1:
-                    #p1 deixa de cooperar
-                    G.nodes[random_node]['value'] = 1
-                    num_coop -= 1
-            else:
-                if p2_v == 0:
-                    #p2 deixa de cooperar
-                    G.nodes[random_neighbour]['value'] = 1
-                    num_coop -= 1
-                else:
-                    #ambos delatam
-                    G.nodes[random_node]['value'] = 0
-                    G.nodes[random_neighbour]['value'] = 0
-                    num_coop += 2
-
-        #passo
-        if i%1000 == 0 and i != 0:
-            t += 1
-            t_list.append(t)
-            coop.append(num_coop)
+def dilema_prisioneiro(sizes, p, n, semente):
+    # Fracao de cooperadores no instante inicial.
+    p_i = 0.5
 
 
-    #fracao de cooperadores
-    frac_coop = [x/n for x in coop]
+    #geradores explicitos: nada de random/np.random globais
+    gerador_numpy, gerador_random = geradores(semente)
 
-    #descarte dos 1000 primeiros registros
-    coop_resultante = frac_coop[1000:]
+    #grafo aleatorio
+    G = nx.stochastic_block_model(sizes, p, nodelist=None, seed=gerador_numpy, directed=False, selfloops=False, sparse=True)
 
-    # Desvio padrão dos cooperadores
-    desvio_padrao = np.std(coop_resultante)
+    #dinamica compartilhada: o laco vive em comum.evoluir
+    t_list, frac_coop = evoluir(G, p_i, gerador_numpy, gerador_random, n)
 
-    # Desvio padrão da média
-    N = len(coop_resultante)
-    desvio_padrao_da_media = desvio_padrao / np.sqrt(N)
-
-    #media dos cooperadores 
-    media_frac_coop = np.mean(coop_resultante)
-
+    #media e desvio, ja descartado o transiente padronizado
+    media_frac_coop, desvio_padrao_da_media = estatisticas(frac_coop)
 
     return media_frac_coop, desvio_padrao_da_media
 
-def loop():
+def loop(semente):
 
     sizes = [250, 250, 250, 250]
     alpha = 0.5
@@ -116,7 +44,7 @@ def loop():
 
     medias = []
     desvios = []
-    k_list = [] 
+    k_list = []
 
     for k in range(2, 22, 2):
         start_time_k = time.time()
@@ -128,7 +56,8 @@ def loop():
 
         p = [[diag, n_diag, n_diag, n_diag], [n_diag, diag, n_diag, n_diag], [n_diag, n_diag, diag, n_diag], [n_diag, n_diag, n_diag, diag]]
 
-        media_frac_coop, desvio_padrao_da_media = dilema_prisioneiro(sizes, p, n)
+        media_frac_coop, desvio_padrao_da_media = dilema_prisioneiro(
+            sizes, p, n, semente_de_ponto(semente, VARREDURA, alpha, k))
 
         medias.append(media_frac_coop)
         desvios.append(desvio_padrao_da_media)
@@ -141,15 +70,27 @@ def loop():
     print(medias, "\n", desvios)
 
     # Salvando as listas em um arquivo CSV
-    with open(SAIDA_CSV / f'Dilema_SBM_results_alpha_{alpha}.csv', 'w', newline='') as csvfile:
-        csvwriter = csv.writer(csvfile)
-        csvwriter.writerow(['grau médio', 'Media_Frac_Coop', 'Desvio_Padrao_da_Media'])
-        for i in range(len(k_list)):
-            csvwriter.writerow([round(k_list[i], 1), medias[i], desvios[i]])
+    salvar_csv(
+        SAIDA_CSV / f'sbm_grau_medio_alpha_{alpha}.csv',
+        ['Grau_Medio', 'Media_Frac_Coop', 'Desvio_Padrao_da_Media'],
+        ([round(k_list[i], 1), medias[i], desvios[i]] for i in range(len(k_list))),
+        semente=semente,
+    )
+
+    plt.figure(figsize=(8, 5))
+    plt.errorbar(k_list, medias, yerr=desvios, fmt='o', capsize=5, markersize=5)
+    plt.title(f'SBM: fração de cooperadores x grau médio (alpha = {alpha})', fontsize=13)
+    plt.xlabel('Grau médio', fontsize=14)
+    plt.ylabel('Média da fração de cooperadores', fontsize=14)
+    plt.ylim(0, 1)
+    plt.grid(True)
+    salvar_figura(plt, SAIDA_FIG / f'sbm_grau_medio_alpha_{alpha}.png')
 
 
 if __name__ == "__main__":
     start_time = time.time()
-    loop()
+    SEMENTE = semente_base()
+    print(f"semente-base = {SEMENTE}")
+    loop(SEMENTE)
     end_time = time.time()
     print(f"Tempo de execução: {round(end_time - start_time, 2)} segundos")

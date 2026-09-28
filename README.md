@@ -1,164 +1,138 @@
 # Dilema do Prisioneiro em Redes Complexas
 
-Simulações de Monte Carlo de uma dinâmica de cooperação/deserção sobre quatro
-modelos de rede — Barabási-Albert, Erdős-Rényi, Watts-Strogatz e Stochastic
-Block Model — investigando como a topologia afeta a fração estacionária de
-cooperadores.
+Simulações de Monte Carlo de uma dinâmica de cooperação e deserção sobre quatro
+modelos de rede: Barabási-Albert, Erdős-Rényi, Watts-Strogatz e Stochastic Block
+Model. A pergunta é como a estrutura da rede afeta a fração de cooperadores no
+estado estacionário.
 
-Código do meu Trabalho de Conclusão de Curso (2024). Este repositório contém a
-**versão apresentada**, reorganizada mas com a dinâmica original preservada.
-As limitações do modelo estão documentadas em [Limitações conhecidas](#limitações-conhecidas).
+Código do meu Trabalho de Conclusão de Curso (2024). A dinâmica é a mesma da
+versão apresentada. Em 2026 reorganizei o código, tornei as simulações
+reprodutíveis e refiz as barras de erro; os resultados em `resultados/` foram
+todos regerados depois disso.
 
----
+## O modelo
+
+N = 1000 nós, cada um cooperando (C) ou delatando (D), com estado inicial
+sorteado com probabilidade p₀ de cooperar. A cada passo sorteia-se um nó e um
+vizinho dele, e o par é atualizado:
+
+| par | resultado |
+|-----|-----------|
+| C, C | continuam C |
+| C, D | o cooperador vira D |
+| D, D | os dois viram C |
+
+É a regra Win-Stay, Lose-Shift (Pavlov) com o nível de aspiração entre P e R. Na
+prática, os dois nós passam a valer `s_i XOR s_j`.
+
+Cada simulação tem 10⁶ passos (1000 varreduras), com a fração de cooperadores
+registrada a cada 100 passos. Os primeiros 10% são descartados como transiente.
 
 ## Estrutura
 
 ```
 src/
-├── barabasi_albert/
-│   ├── ba_varia_grau_medio.py      # varre m = 1..10 (⟨k⟩ = 2m)
-│   └── ba_prototipo_com_score.py   # protótipo com matriz de payoff (ver Limitações)
-├── erdos_renyi/
-│   └── er_varia_grau_medio.py      # varre ⟨k⟩ = 2..20
-├── watts_strogatz/
-│   ├── ws_varia_k.py               # p fixo, varre k
-│   ├── ws_varia_p.py               # k fixo, varre p de religação
-│   └── ws_transiente.py            # curva ρ(t), média de 30 realizações
-├── sbm/
-│   ├── sbm_varia_alpha.py          # varre α (1 realização por ponto)
-│   ├── sbm_varia_alpha_ensemble.py # idem, 20 realizações
-│   ├── sbm_varia_alpha_paralelo.py # idem, 25 realizações, multiprocessing
-│   ├── sbm_varia_k.py              # α fixo, varre ⟨k⟩
-│   └── sbm_histograma_alpha.py     # histograma de 200 realizações, α fixo
-├── comparacoes/
-│   ├── ba_vs_er.py                 # BA e ER no mesmo gráfico
-│   └── gerar_graficos.py           # lê os CSVs e monta as figuras
-└── nucleos.py                      # utilitário: imprime os.cpu_count()
-
-resultados/
-├── <modelo>/csv/                   # saídas numéricas
-├── <modelo>/figuras/               # PNGs
-└── _orfaos/                        # dados sem script correspondente
+├── comum.py              # dinâmica, amostragem, sementes, estatística e I/O
+├── barabasi_albert/      # varre o grau médio (m = 1..10) e p₀ ∈ {0,1; 0,9}
+├── erdos_renyi/          # varre o grau médio (2..20)
+├── watts_strogatz/       # varre k, a religação p e o transiente ρ(t)
+├── sbm/                  # varre α (força das comunidades) e o grau médio
+└── comparacoes/          # BA contra ER, e montagem das figuras finais
+resultados/<modelo>/      # csv/ e figuras/ de cada modelo
 ```
 
-Em `watts_strogatz/` há um par de subpastas `media_30_simulacoes/` (em `csv/` e
-em `figuras/`) com resultados promediados sobre 30 realizações, gerados por uma
-versão anterior dos scripts de WS. A nomenclatura ali é a antiga
-(`Dilema_WA_results_*`, `WA_transiente_p_*_k_*`) e não corresponde à saída atual.
-
-Cada script resolve seus diretórios de saída a partir da raiz do repositório
-(`Path(__file__).resolve().parents[2]`), então pode ser executado de qualquer
-diretório.
+São 11 experimentos, com 256 configurações de parâmetros e 3.134 simulações no
+total. Os ensembles usam 20, 25, 30 e 200 realizações independentes; o maior é
+o SBM variando α e o grau médio (90 configurações × 25 realizações).
 
 ## Como rodar
 
 ```bash
 pip install -r requirements.txt
+python src/erdos_renyi/er_varia_grau_medio.py
+python src/comparacoes/gerar_graficos.py   # remonta as figuras a partir dos CSVs
 ```
+
+Uma simulação leva ~3 s; regerar tudo leva ~35 min numa máquina de 12 núcleos.
+Os scripts com `multiprocessing` usam os núcleos disponíveis menos dois
+(`TCC_PROCESSOS=N` muda isso sem alterar resultado).
+
+## Reprodutibilidade
+
+Toda a aleatoriedade, inclusive a construção dos grafos, sai de uma semente-base.
+Cada ponto de varredura e cada realização têm uma semente derivada dela, e todo
+CSV guarda a semente-base na coluna `Semente_Base`. Os resultados versionados
+usam 20242025:
 
 ```bash
-python src/erdos_renyi/er_varia_grau_medio.py
+python src/sbm/sbm_varia_k.py --semente 20242025
 ```
 
-Os scripts de simulação levam de minutos a horas (10⁶ passos por ponto da
-varredura). Os que usam `multiprocessing` assumem ~8 núcleos; ajuste
-`processes=` conforme sua máquina (`python src/nucleos.py` mostra quantos você tem).
+Rodar de novo com a mesma semente produz os mesmos arquivos, byte a byte.
+`TCC_RESULTADOS=<pasta>` grava as saídas em outro lugar, útil para comparar com o
+que está versionado.
 
-## O modelo
+## Barras de erro
 
-**Agentes.** N = 1000 nós, cada um com um estado `value` ∈ {0 = coopera, 1 = delata},
-sorteado inicialmente com probabilidade `p`.
-
-**Dinâmica.** A cada passo sorteia-se um nó e um vizinho dele. O par é atualizado
-segundo uma regra determinística:
-
-| par | resultado |
-|-----|-----------|
-| C, C | ambos permanecem C |
-| C, D | o cooperador vira D |
-| D, C | o cooperador vira D |
-| D, D | **ambos viram C** |
-
-Uma unidade de tempo = N passos. Descarta-se o transiente e calcula-se a média e
-o desvio padrão da média da fração de cooperadores no estado estacionário.
-
-Essa regra é exatamente **Win-Stay, Lose-Shift** (Pavlov, Nowak & Sigmund 1993)
-com nível de aspiração A na faixa P < A < R: quem recebeu um payoff acima da
-aspiração repete a ação, quem recebeu abaixo troca. Equivalentemente, ambos os
-nós assumem o valor `s_i XOR s_j`.
+Nos experimentos de uma realização, o erro da média vem de blocagem, e não de
+σ/√N. Os registros de uma mesma série são muito correlacionados (entre um e
+outro mudam no máximo 200 dos 1000 nós), e σ/√N subestimava o erro de 3 a 5
+vezes. Nos ensembles o erro é σ/√N sobre as realizações, que são independentes.
 
 ## Resultados
 
-| Rede | Resultado |
-|------|-----------|
-| Erdős-Rényi | ρ cai de 0,78 (⟨k⟩=2) e satura em ~0,51 conforme ⟨k⟩ cresce |
-| Barabási-Albert | mesma tendência decrescente com ⟨k⟩ = 2m |
-| Watts-Strogatz, k=2 | ρ = 1,0 exato para todo p de religação (anel trava em cooperação) |
-| SBM | ρ ≈ 0,628 constante para α de 0,1 a 0,9, com ⟨k⟩ fixo |
+- **O grau médio controla o resultado.** Em Erdős-Rényi, ρ cai de 0,797 com
+  ⟨k⟩ = 2 para 0,515 ± 0,0007 com ⟨k⟩ = 20. De ⟨k⟩ = 4 em diante, ER, BA, SBM e
+  Watts-Strogatz totalmente religado concordam dentro de ~0,01 no mesmo grau
+  médio.
+- **Comunidades não afetam.** No SBM com grau médio fixo, ρ é plano em α de 0,1 a
+  0,9, para todos os graus médios de 2 a 20.
+- **A condição inicial é esquecida.** p₀ = 0,1 e p₀ = 0,9 convergem para o mesmo
+  valor (≈ 0,52 em BA com ⟨k⟩ = 20) em poucas varreduras.
+- **A distribuição de graus tem um efeito pequeno.** De ⟨k⟩ = 8 em diante, BA
+  fica 0,003 a 0,008 acima de ER em todos os pontos.
+- **Redes regulares de grau baixo são exceção.** Em Watts-Strogatz com k = 2 a
+  dinâmica termina com todos cooperando, para qualquer religação. Com k = 6, o
+  anel sem religação fica em 0,592 contra 0,560 do totalmente religado.
 
-**Conclusão.** O parâmetro de controle é o **grau médio**, não a topologia. A
-estrutura de comunidades (α no SBM, com ⟨k⟩ mantido constante) não afeta o
-resultado.
+O campo médio da regra explica o valor em torno de ½: sorteando pares
+independentes, `E[Δρ] ∝ 2(1−ρ)(1−2ρ)`, com ponto fixo estável em ρ = ½. A regra
+cria correlação entre vizinhos, e essa correlação eleva ρ acima de ½; quanto
+maior o grau, mais rápido ela se dilui, e por isso o grau médio é o que manda.
 
-Isso é consistente com o campo médio da regra: sorteando um par aleatório,
-`E[Δρ] ∝ 2(1−ρ)(1−2ρ)`, cujo ponto fixo estável é **ρ\* = 1/2**, independente da
-rede. Os desvios observados em relação a 1/2 são correções de conectividade
-finita e de regularidade da rede. Os dados confirmam: ER com ⟨k⟩=20 dá 0,514, e
-condições iniciais p₀ = 0,1 e p₀ = 0,9 convergem ambas para ≈ 0,54.
+Todos cooperando é um estado absorvente e alcançável de qualquer configuração,
+então o platô medido é quase-estacionário. Para ⟨k⟩ ≥ 6 a absorção leva muito
+mais que a simulação; em anéis de grau baixo, ela acontece dentro dela.
 
-## Limitações conhecidas
+## Limitações
 
-Documentadas aqui porque determinam o alcance das conclusões acima:
+1. **A matriz de payoff não é usada.** Ganhar ou perder está embutido na regra, e
+   não há varredura do parâmetro de tentação, que é o eixo usual na literatura.
+2. **O nível de aspiração é implícito.** Com ele entre S e P, o estado todo-D vira
+   absorvente e a cooperação desaparece em qualquer rede.
+3. **Não há dinâmica evolutiva.** Ninguém imita nem compete; a fração de
+   cooperadores mede a fase de um autômato, não o sucesso de uma estratégia. Por
+   isso a reciprocidade de rede, que faz a topologia importar nessa literatura,
+   está ausente.
+4. **Dois pontos de Watts-Strogatz não convergiram.** Com k = 4 e p = 0 o anel é
+   absorvido entre ~900 e ~1300 varreduras, então o 0,903 gravado é uma média
+   sobre a absorção em andamento. Com p = 0,02 a série ainda sobe no fim
+   (0,717 no CSV, ~0,735 com 5000 varreduras).
+5. **Uma realização não mede a variação entre redes.** Em grau baixo, redes
+   sorteadas com os mesmos parâmetros diferem mais do que a barra de erro de uma
+   delas: ~0,005 em ⟨k⟩ = 4, contra ~0,001 da barra. De ⟨k⟩ = 8 em diante as duas
+   coincidem.
+6. `ba_prototipo_com_score.py` acumula pontuação, mas os dois ramos da comparação
+   são idênticos, então roda a mesma dinâmica dos demais.
 
-1. **A matriz de payoff não é usada.** A classificação ganhou/perdeu está
-   embutida na estrutura dos `if`, não calculada a partir dos payoffs. Alterar
-   os valores em `calc_score` não muda nenhum resultado. Não há varredura do
-   parâmetro de tentação (b, ou T/R), que é o eixo x padrão da literatura.
+## Próximos passos
 
-2. **O nível de aspiração é implícito.** WSLS exige um limiar A separando
-   ganho de perda. O código fixa P < A < R sem declarar. Com S < A < P, o estado
-   todo-D vira absorvente e a cooperação desaparece em qualquer rede — ou seja,
-   o resultado principal depende de uma escolha não declarada.
+Reescrever a dinâmica como jogo evolutivo, mantendo as mesmas redes: cada nó
+joga com todos os vizinhos, acumula payoff e imita um vizinho com a regra de
+Fermi, `P(i copia j) = 1 / (1 + exp[(Π_i − Π_j)/K])`, varrendo o parâmetro de
+tentação e com ensembles de realizações desde o início.
 
-3. **Não há dinâmica evolutiva.** Todo agente é um autômato WSLS fixo: ninguém
-   imita, ninguém se reproduz, nenhuma estratégia compete com outra. "Fração de
-   cooperadores" mede a fase de um autômato, não o sucesso evolutivo da cooperação.
-
-4. **Reciprocidade de rede está ausente por construção.** O mecanismo pelo qual
-   a topologia importa nessa literatura exige payoff somado sobre toda a
-   vizinhança e imitação baseada nele. Aqui a atualização olha apenas os rótulos
-   de um par sorteado, então grau e clusterização entram só pelo sorteio.
-
-5. **WSLS sem memória por parceiro.** No DP iterado, Pavlov reage à última
-   rodada contra *aquele* oponente. Aqui cada nó tem uma ação global única e é
-   pareado com um vizinho diferente a cada passo.
-
-6. **Barras de erro subestimadas.** O desvio padrão da média é calculado como
-   `σ/√N` sobre uma série temporal correlacionada, tratando amostras dependentes
-   como independentes.
-
-### Pontos menores
-
-- `ba_prototipo_com_score.py`: os dois ramos do `if` de comparação de score são
-  logicamente idênticos, então a pontuação acumulada não influencia nada. O
-  script roda a mesma dinâmica dos demais.
-- `gerar_graficos.py`: `comparar_graficos_p0` e `comparar_WA_transiente`
-  desempacotam 2 valores de `read_csv`, que retorna 3 — levantam `ValueError`.
-  Ficaram desatualizadas quando a coluna de desvio foi adicionada.
-- A unidade de tempo não é uniforme: `ba_varia_grau_medio.py` registra a cada
-  100 passos (0,1 varredura) enquanto os demais registram a cada 1000 (1 varredura).
-  O tamanho do transiente descartado também varia entre scripts.
-- `resultados/_orfaos/Dilema_LFR_results.csv` tem valores entre 2,9 e 5,3, fora
-  do intervalo [0,1] de uma fração. Nenhum script atual gera LFR — provável erro
-  de normalização em código perdido.
-- `sbm_varia_alpha.py` e `sbm_varia_alpha_ensemble.py` gravavam no mesmo arquivo
-  e se sobrescreviam. Agora escrevem `sbm_alpha_k_{k}_1sim.csv` e
-  `sbm_alpha_k_{k}_20sim.csv`. Os CSVs históricos `Dilema_SBM_results_k_*.csv`
-  vieram de um dos dois, sem registro de qual.
-- Prefixo `WA_` nos arquivos de Watts-Strogatz é typo herdado de `WS_`,
-  preservado para não quebrar a correspondência com os dados já gerados.
-
-## Correspondência com os nomes originais
+## Nomes originais dos scripts
 
 | Original | Atual |
 |----------|-------|
@@ -168,31 +142,12 @@ Documentadas aqui porque determinam o alcance das conclusões acima:
 | `Dilema_WS_k_varia.py` | `src/watts_strogatz/ws_varia_k.py` |
 | `Dilema_WS_p_varia.py` | `src/watts_strogatz/ws_varia_p.py` |
 | `DIlema_WS_P_transicao.py` | `src/watts_strogatz/ws_transiente.py` |
-| `Dilema_SBM_alpha_varia.py` | `src/sbm/sbm_varia_alpha.py` |
 | `Dilema_SBM_alpha_varias_sim.py` | `src/sbm/sbm_varia_alpha_ensemble.py` |
 | `Dilema_SBM_k_varia.py` | `src/sbm/sbm_varia_k.py` |
 | `teste_paral.py` | `src/sbm/sbm_varia_alpha_paralelo.py` |
 | `SBM_teste_alpha.py` | `src/sbm/sbm_histograma_alpha.py` |
 | `Dilema_varios_modelos.py` | `src/comparacoes/ba_vs_er.py` |
 | `graficos_dilema.py` | `src/comparacoes/gerar_graficos.py` |
-| `nucleos.py` | `src/nucleos.py` |
-
-## Próximos passos
-
-Reescrita da dinâmica para teoria de jogos evolutiva padrão, mantendo os mesmos
-modelos de rede para comparação direta:
-
-- cada nó joga com **todos** os vizinhos e acumula payoff Π;
-- atualização por imitação com regra de Fermi:
-  `P(i copia j) = 1 / (1 + exp[(Π_i − Π_j)/K])`;
-- varredura do parâmetro de tentação como eixo x;
-- decisão explícita entre payoff acumulado e payoff médio por vizinho — a
-  escolha altera fortemente os resultados em redes livres de escala;
-- barras de erro sobre um ensemble de realizações independentes, não sobre
-  uma série temporal correlacionada.
-
-Alternativa: manter WSLS e tornar o nível de aspiração A um parâmetro explícito,
-varrendo-o para mapear os regimes (absorvente em D / coexistência / oscilatório).
 
 ## Referências
 
