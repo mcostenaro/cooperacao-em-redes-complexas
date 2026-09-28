@@ -10,8 +10,8 @@ from comum import (diretorios, estatisticas, evoluir, geradores, salvar_csv,
                    salvar_figura, semente_base, semente_de_ponto)
 
 SAIDA_CSV, SAIDA_FIG = diretorios('watts_strogatz')
-# Subpasta propria: ws_varia_p.py gera as mesmas combinacoes (k, p) e antes
-# as duas varreduras gravavam no mesmo nome de arquivo.
+# Subpasta propria: ws_varia_p.py gera as mesmas combinacoes (k, p) e as
+# figuras teriam o mesmo nome.
 SAIDA_FIG = SAIDA_FIG / 'varia_k'
 
 # Rotulo desta varredura nas sementes derivadas. Distinto do de ws_varia_p.py:

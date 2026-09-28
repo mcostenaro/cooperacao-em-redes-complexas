@@ -1,8 +1,7 @@
 """Monta as figuras de comparacao a partir dos CSVs ja gerados.
 
 Nao roda simulacao: le resultados/<modelo>/csv/ e grava PNGs em
-resultados/comparacoes/figuras/. Antes as funcoes terminavam em plt.show(),
-entao o script so servia para print de tela e nao produzia arquivo nenhum.
+resultados/comparacoes/figuras/.
 """
 
 import matplotlib.pyplot as plt
@@ -29,8 +28,7 @@ def comparar_graficos_p0(arquivo1, arquivo2, label1=r'$p_0 = 0.1$', label2=r'$p_
 
     Os arquivos sao CSVs de serie (duas colunas: tempo, fracao). Sao as series
     de BA para o mesmo m e dois p0 diferentes - o experimento de condicao
-    inicial. Antes de ba_varia_grau_medio.py varrer p0, o segundo arquivo so
-    existia se alguem editasse o script e rodasse de novo.
+    inicial.
     '''
     t_list1, frac_coop1 = ler_serie(arquivo1)
     t_list2, frac_coop2 = ler_serie(arquivo2)

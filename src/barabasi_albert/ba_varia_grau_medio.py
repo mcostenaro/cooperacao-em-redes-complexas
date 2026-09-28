@@ -16,9 +16,8 @@ SAIDA_CSV, SAIDA_FIG = diretorios('barabasi_albert')
 VARREDURA = 'ba_varia_grau_medio'
 
 # Condicoes iniciais varridas. A figura comparacao_fracao_de_cooperadores.png
-# contrapoe p0 = 0,1 a p0 = 0,9; antes p0 estava fixo no corpo da funcao e o
-# segundo dado exigia editar o arquivo e rodar de novo, sem registro de qual
-# valor gerou qual CSV. Acrescentar um valor aqui basta para varrer mais um.
+# contrapoe p0 = 0,1 a p0 = 0,9. Acrescentar um valor aqui basta para varrer
+# mais um.
 P0_INICIAIS = [0.1, 0.9]
 
 

@@ -39,8 +39,7 @@ def dilema_prisioneiro(sizes, p, n, np_random, random_gen):
 def run_simulation(args):
     # A semente vem como argumento da tarefa, nao do estado do processo pai: no
     # Windows o start method e spawn, o filho reimporta este modulo do zero e
-    # nao herda gerador nenhum. Antes daqui saia um SeedSequence() sem entropia
-    # fixa, o que tornava cada execucao irrepetivel.
+    # nao herda gerador nenhum.
     sizes, p, n, semente = args
     np_random, random_gen = geradores(semente)
     media_frac_coop, _ = dilema_prisioneiro(sizes, p, n, np_random, random_gen)

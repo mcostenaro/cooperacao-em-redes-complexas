@@ -3,15 +3,7 @@
 Todos os scripts usam estas constantes para que medias e barras de erro sejam
 comparaveis entre modelos.
 
-Antes desta padronizacao cada script tinha sua propria taxa de registro e seu
-proprio corte de transiente: BA registrava a cada 100 passos e descartava 100
-registros (9900 amostras), ER registrava a cada 1000 e descartava 100 (900
-amostras), e WS/SBM registravam a cada 1000 e descartavam 1000 (100 amostras).
-Como o desvio padrao da media e sigma/sqrt(N), as barras de erro publicadas
-diferiam por um fator sqrt(9900/900) = 3,3 entre BA e ER sem que o sigma da
-serie fosse diferente - era artefato da taxa de amostragem, nao fisica.
-
-Convencao adotada:
+Convencao:
     - 1 varredura = N passos de Monte Carlo (cada no sorteado uma vez em media)
     - 1000 varreduras simuladas = 10^6 passos com N = 1000
     - 1 registro a cada 100 passos = 0,1 varredura -> 10.000 registros
@@ -19,8 +11,7 @@ Convencao adotada:
     - restam 9.000 amostras estacionarias em todos os scripts
 
 Cabecalhos de CSV nao usam acento nem cedilha, e todo arquivo e escrito em
-UTF-8 explicito. Os CSVs antigos do SBM foram gravados sem encoding declarado
-e acabaram com bytes U+FFFD no lugar de "cao" em "fracao".
+UTF-8 explicito.
 
 Reprodutibilidade
 -----------------
@@ -38,9 +29,8 @@ sequencia de numeros. As realizacoes de um ensemble saem de
 argumento da tarefa do multiprocessing - no Windows o start method e spawn, o
 processo filho reimporta o modulo e nao herda estado nenhum do pai.
 
-Variaveis de ambiente reconhecidas (as tres ultimas existem para o teste de
-reprodutibilidade rodar em segundos em vez de horas, sem tocar em
-`resultados/`):
+Variaveis de ambiente reconhecidas (as tres ultimas servem para testes
+rapidos, sem tocar em `resultados/`):
 
     TCC_SEMENTE               semente-base
     TCC_VARREDURAS            sobrescreve VARREDURAS
@@ -188,8 +178,7 @@ def processos():
     """Numero de processos dos scripts que usam multiprocessing.
 
     Deixa dois nucleos livres para a maquina continuar usavel; TCC_PROCESSOS
-    sobrescreve. Antes cada script tinha sua propria politica - Pool() com
-    todos os nucleos, Pool(processes=8) fixo, e min(8, cpu_count() - 2).
+    sobrescreve.
 
     Trocar este numero nao muda resultado nenhum: cada tarefa carrega sua
     propria semente e pool.map preserva a ordem dos retornos.
@@ -215,12 +204,9 @@ def sortear_vizinho(G, no, gerador_random, vizinhos=None):
 def listas_de_adjacencia(G):
     """(lista de nos, dict de listas de vizinhos), fixadas uma unica vez.
 
-    O grafo nao muda durante a dinamica, mas o codigo original chamava
-    list(G.nodes()) e list(G.neighbors(no)) dentro do laco - 10^6 vezes, cada
-    uma reconstruindo uma lista de mil elementos. Pre-computar da exatamente as
-    mesmas listas, na mesma ordem, entao `choice` sorteia o mesmo elemento e
-    consome a mesma quantidade do gerador: o resultado e identico, so mais
-    rapido.
+    O grafo nao muda durante a dinamica, entao as listas sao montadas uma vez,
+    fora do laco. Sao as mesmas que list(G.nodes()) e list(G.neighbors(no))
+    devolvem, na mesma ordem, entao `choice` consome o gerador do mesmo jeito.
     """
     nos = list(G.nodes())
     return nos, {no: list(G.neighbors(no)) for no in nos}
@@ -250,10 +236,6 @@ def evoluir(G, p0, gerador_numpy, gerador_random, n=None):
     Devolve a serie inteira, sem descartar transiente: quem quer o estacionario
     passa o resultado por `estatisticas`, quem estuda o transiente (como
     ws_transiente.py) usa o comeco dela.
-
-    Esta funcao existe porque o mesmo laco estava copiado em 11 scripts. Qualquer
-    mudanca de regra precisava ser replicada, sem nada garantindo que ficassem
-    iguais.
     """
     if n is None:
         n = G.number_of_nodes()
@@ -359,11 +341,9 @@ def erro_por_blocagem(serie, minimo_de_blocos=16):
 def estatisticas(frac_coop):
     """Media e erro do valor medio da serie, descartado o transiente.
 
-    O erro vem de `erro_por_blocagem`, nao de sigma/sqrt(N): a serie e
-    correlacionada e a formula ingenua subestimava a incerteza por um fator de
-    3 a 5. Nos experimentos com ensemble o erro nao passa por aqui - la ele e
-    calculado sobre as realizacoes independentes, que ja sao independentes de
-    verdade.
+    O erro vem de `erro_por_blocagem`, nao de sigma/sqrt(N), porque a serie e
+    correlacionada. Nos experimentos com ensemble o erro nao passa por aqui: la
+    ele e calculado sobre as realizacoes, que sao independentes.
     """
     estacionario = frac_coop[REGISTROS_TRANSIENTE:]
     media = float(np.mean(estacionario))
